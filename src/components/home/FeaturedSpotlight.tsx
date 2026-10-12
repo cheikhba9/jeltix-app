@@ -73,8 +73,12 @@ export function FeaturedSpotlight() {
           {/* Event Image */}
           <div className="lg:col-span-5 relative rounded-2xl overflow-hidden shadow-lg h-64 lg:h-80 group">
             <Image
-              src={featuredEvent.bannerImage}
-              alt={featuredEvent.title}
+              src={
+                featuredEvent.bannerImage?.startsWith('http') || featuredEvent.bannerImage?.startsWith('data:')
+                  ? featuredEvent.bannerImage
+                  : 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80'
+              }
+              alt={featuredEvent.title || 'Événement Vedette'}
               fill
               sizes="(max-width: 1024px) 100vw, 42vw"
               priority

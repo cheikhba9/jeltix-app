@@ -14,7 +14,8 @@
 /coverage
 
 # next.js
-/.next/
+/.next
+.next
 /out/
 
 # production
@@ -23,6 +24,7 @@
 # misc
 .DS_Store
 *.pem
+.vscode/
 
 # debug
 npm-debug.log*
@@ -43,3 +45,10 @@ next-env.d.ts
 
 # supabase
 supabase/.temp/
+
+# iCloud exclusions
+/node_modules.nosync
+/.next.nosync
+
+# Local database temp files
+data/*.tmp*

@@ -41,8 +41,8 @@ Ouvrez [http://localhost:3000](http://localhost:3000) dans votre navigateur.
 ## 📱 Parcours Clés de Démonstration
 
 1. **Accueil & Marketplace Spectateurs** : `http://localhost:3000/`
-2. **Tunnel d'Achat & Réservation** : `http://localhost:3000/events/match-pilote-finale-coupe`
-3. **Paiement Mobile Wave / OM** : `http://localhost:3000/events/match-pilote-finale-coupe/checkout`
+2. **Tunnel d'Achat & Réservation** : `http://localhost:3000/discover/match-pilote-finale-coupe`
+3. **Paiement Mobile Wave / OM** : `http://localhost:3000/discover/match-pilote-finale-coupe/checkout`
 4. **Billet Électronique Interactif** : `http://localhost:3000/tickets/JT-7777-DEMO`
 5. **Scanner Contrôleur PWA** : `http://localhost:3000/scan`
 6. **Caisse Guichet POS** : `http://localhost:3000/sales/pos`

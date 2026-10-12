@@ -52,6 +52,10 @@ function extractTicketCode(raw: string): string {
   if (urlMatch && urlMatch[1]) {
     return urlMatch[1].toUpperCase();
   }
+  const jeltixMatch = clean.match(/JELTIX:([^:]+):/i);
+  if (jeltixMatch && jeltixMatch[1]) {
+    return jeltixMatch[1].toUpperCase();
+  }
   const codeMatch = clean.match(/(?:JT|FT)-[A-Z0-9-]+/i);
   if (codeMatch) {
     return codeMatch[0].toUpperCase();
@@ -625,13 +629,19 @@ export default function PwaScannerPage() {
             <div
               className={`absolute inset-0 z-30 p-5 flex flex-col justify-between animate-in zoom-in-95 duration-150 text-white ${
                 scanResult.status === 'VALID'
-                  ? 'bg-gradient-to-b from-[#0038A8] to-[#0A2666]'
-                  : 'bg-gradient-to-b from-[#DC2626] to-[#7F1D1D]'
+                  ? 'bg-gradient-to-b from-[#15803D] via-[#16A34A] to-[#14532D]'
+                  : scanResult.status === 'ALREADY_SCANNED'
+                  ? 'bg-gradient-to-b from-[#C2410C] via-[#EA580C] to-[#7C2D12]'
+                  : 'bg-gradient-to-b from-[#DC2626] via-[#B91C1C] to-[#7F1D1D]'
               }`}
             >
               <div className="flex items-center justify-between border-b border-white/20 pb-2">
                 <span className="text-[10px] font-mono uppercase font-black tracking-wider">
-                  RÉSULTAT DE CONTRÔLE
+                  {scanResult.status === 'VALID'
+                    ? 'CONTRÔLE RÉUSSI • ENTRÉE AUTORISÉE'
+                    : scanResult.status === 'ALREADY_SCANNED'
+                    ? 'ALERTE FRAUDE • DÉJÀ SCANNÉ'
+                    : 'CONTRÔLE ÉCHOUÉ • BILLET INVALIDE'}
                 </span>
                 <button
                   onClick={clearResult}
@@ -644,34 +654,51 @@ export default function PwaScannerPage() {
               <div className="flex flex-col items-center text-center space-y-2 my-auto">
                 {scanResult.status === 'VALID' ? (
                   <>
-                    <div className="w-16 h-16 rounded-full bg-[#4EED15] text-[#002D8C] flex items-center justify-center shadow-xl">
+                    <div className="w-16 h-16 rounded-full bg-white text-[#15803D] flex items-center justify-center shadow-xl ring-4 ring-white/30">
                       <CheckCircle2 className="w-10 h-10" />
                     </div>
-                    <p className="text-xl font-black text-[#4EED15] tracking-tight">ACCÈS AUTORISÉ</p>
-                    <p className="text-xs font-bold text-white/90">
+                    <p className="text-2xl font-black text-white tracking-tight">ACCÈS AUTORISÉ</p>
+                    <p className="text-xs font-bold text-white/90 font-mono">
                       Billet #{scanResult.ticket?.ticketCode}
                     </p>
-                    <div className="bg-white/10 p-3 rounded-2xl w-full text-left text-xs space-y-1 mt-2">
-                      <p className="font-bold text-white">{scanResult.ticket?.customerName}</p>
-                      <p className="text-white/80">{scanResult.ticket?.ticketTypeName}</p>
-                      <p className="text-[11px] text-[#4EED15] font-mono">
-                        {scanResult.ticket?.gateRecommendation}
+                    <div className="bg-white/15 backdrop-blur-sm p-3.5 rounded-2xl w-full text-left text-xs space-y-1.5 mt-2 border border-white/20">
+                      <p className="font-extrabold text-white text-sm">{scanResult.ticket?.customerName}</p>
+                      <p className="text-white/90 font-semibold">{scanResult.ticket?.ticketTypeName}</p>
+                      <p className="text-[11px] text-emerald-200 font-mono font-bold">
+                        {scanResult.ticket?.gateRecommendation} • {scanResult.ticket?.seatNumber}
                       </p>
+                      <p className="text-[10px] text-white/70 truncate">{scanResult.ticket?.eventTitle}</p>
+                    </div>
+                  </>
+                ) : scanResult.status === 'ALREADY_SCANNED' ? (
+                  <>
+                    <div className="w-16 h-16 rounded-full bg-white text-[#C2410C] flex items-center justify-center shadow-xl ring-4 ring-white/30">
+                      <AlertTriangle className="w-10 h-10" />
+                    </div>
+                    <p className="text-2xl font-black text-white tracking-tight">BILLET DÉJÀ SCANNÉ</p>
+                    <p className="text-xs font-bold text-white/95">
+                      Billet #{scanResult.ticket?.ticketCode}
+                    </p>
+                    <div className="bg-black/25 backdrop-blur-sm p-3.5 rounded-2xl w-full text-left text-xs space-y-1 mt-2 border border-white/20">
+                      <p className="font-bold text-white">Tentative de double passage détectée</p>
+                      {scanResult.previousScanDate && (
+                        <p className="text-[11px] text-amber-200 font-mono">
+                          1er scan : {new Date(scanResult.previousScanDate).toLocaleTimeString()} ({scanResult.previousScanGate})
+                        </p>
+                      )}
+                      <p className="text-[10px] text-white/80">Participant : {scanResult.ticket?.customerName}</p>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="w-16 h-16 rounded-full bg-white text-[#DC2626] flex items-center justify-center shadow-xl">
+                    <div className="w-16 h-16 rounded-full bg-white text-[#DC2626] flex items-center justify-center shadow-xl ring-4 ring-white/30">
                       <XCircle className="w-10 h-10" />
                     </div>
-                    <p className="text-xl font-black text-white tracking-tight">ACCÈS REFUSÉ</p>
-                    <p className="text-xs font-bold text-white/90">{scanResult.message}</p>
-                    {scanResult.previousScanDate && (
-                      <p className="text-[10px] font-mono bg-black/30 px-3 py-1 rounded-full mt-2">
-                        1er passage : {new Date(scanResult.previousScanDate).toLocaleTimeString()} (
-                        {scanResult.previousScanGate})
-                      </p>
-                    )}
+                    <p className="text-2xl font-black text-white tracking-tight">BILLET INVALIDE</p>
+                    <p className="text-xs font-bold text-white/95">{scanResult.message}</p>
+                    <p className="text-[11px] text-white/70 font-mono mt-1">
+                      Code inconnu ou non répertorié dans la billetterie
+                    </p>
                   </>
                 )}
               </div>

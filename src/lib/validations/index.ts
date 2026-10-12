@@ -64,3 +64,13 @@ export const UserManagementSchema = z.object({
   role: z.enum(['SUPER_ADMIN', 'ORGANIZER', 'CONTROLLER', 'SELLER', 'FINANCE']),
   isActive: z.boolean().default(true),
 });
+
+// Invitation Schema (used in users management)
+export const InviteUserSchema = z.object({
+  fullName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères').max(100),
+  email: z.string().email('Adresse email invalide'),
+  phone: z.string().optional().or(z.literal('')),
+  role: z.enum(['CONTROLLER', 'SELLER', 'ORGANIZER', 'FINANCE', 'SUPER_ADMIN']),
+  organization: z.string().optional().or(z.literal('')),
+});
+

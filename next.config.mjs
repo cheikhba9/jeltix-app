@@ -29,10 +29,6 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react'],
   },
 
-  // ─── Bypass strict linting/typing on Vercel to allow deploy ───────────────
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },

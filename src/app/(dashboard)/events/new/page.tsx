@@ -4,7 +4,6 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useJeltixStore } from '@/lib/store/jeltix-store';
 import { uploadEventImage } from '@/lib/services/storage.service';
-import { createEventInSupabase } from '@/lib/services/events.service';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -148,13 +147,21 @@ export default function NewEventPage() {
     const organizerId = currentUser?.id || `usr-org-${Date.now()}`;
     const organizerName = currentUser?.fullName || 'Mon Organisation';
 
+    let parsedDateStr = new Date().toISOString();
+    try {
+      const d = new Date(startDate);
+      if (!isNaN(d.getTime())) {
+        parsedDateStr = d.toISOString();
+      }
+    } catch {}
+
     const eventPayload = {
       slug,
       title,
       category,
       venue,
       locationDetails: locationDetails || 'Dakar, Sénégal',
-      startDate: new Date(startDate).toISOString(),
+      startDate: parsedDateStr,
       timeString: timeString || '18:00 UTC',
       bannerImage,
       description: description || `Événement majeur organisé au ${venue}.`,
@@ -171,14 +178,7 @@ export default function NewEventPage() {
       })),
     };
 
-    try {
-      // 1. Save directly into Supabase Database
-      await createEventInSupabase(eventPayload);
-    } catch (err) {
-      console.warn('Supabase createEvent notice, persisting locally:', err);
-    }
-
-    // 2. Persist in local store
+    // Persist in 100% local store on Mac & notify all views
     createEvent({
       ...eventPayload,
       ticketTypes: ticketTypes.map((tt, idx) => ({

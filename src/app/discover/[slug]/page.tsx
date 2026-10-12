@@ -86,7 +86,7 @@ export default function PublicEventDetailPage({
         })
       );
     }
-    router.push(`/events/${event.slug}/checkout`);
+    router.push(`/discover/${event.slug}/checkout`);
   };
 
   const handleShare = () => {

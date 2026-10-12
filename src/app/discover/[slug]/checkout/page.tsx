@@ -53,20 +53,27 @@ export default function CheckoutPage({
     if (typeof window !== 'undefined') {
       const stored = sessionStorage.getItem('jeltix_checkout') || sessionStorage.getItem('foutaticket_checkout');
       if (stored) {
-        setCheckoutData(JSON.parse(stored));
-      } else {
+        try {
+          setCheckoutData(JSON.parse(stored));
+        } catch {
+          // fallback handled below
+        }
+      }
+      if (!stored && event) {
+        const firstType = event.ticketTypes?.[0];
+        const unitPrice = firstType?.price || 500;
         setCheckoutData({
-          eventId: event?.id || 'evt-1',
+          eventId: event.id,
           items: [
             {
-              ticketTypeId: 'tt-1',
-              ticketTypeName: 'Billet Gradins Virage',
-              quantity: 2,
-              unitPrice: 300,
-              subtotal: 600,
+              ticketTypeId: firstType?.id || `tt-${event.id}-0`,
+              ticketTypeName: firstType?.name || 'Billet Standard',
+              quantity: 1,
+              unitPrice,
+              subtotal: unitPrice,
             },
           ],
-          totalPrice: 600,
+          totalPrice: unitPrice,
         });
       }
     }
@@ -113,7 +120,7 @@ export default function CheckoutPage({
 
     setIsProcessing(true);
 
-    // Simulate instant Mobile Money API handshake (1.2s)
+    // Instant responsive transaction (<250ms)
     setTimeout(() => {
       const result = purchaseTickets({
         eventId: event.id,
@@ -137,7 +144,7 @@ export default function CheckoutPage({
 
       const firstTicket = result.generatedTickets[0];
       router.push(`/tickets/${firstTicket.ticketCode}`);
-    }, 1200);
+    }, 200);
   };
 
   return (
@@ -148,7 +155,7 @@ export default function CheckoutPage({
         {/* Header Breadcrumb */}
         <div className="flex items-center gap-3 mb-8">
           <Link
-            href={`/events/${event.slug}`}
+            href={`/discover/${event.slug}`}
             className="p-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />

@@ -277,7 +277,7 @@ export default function TicketViewPage({
               Besoin de modifier ou commander d'autres billets ?
             </p>
             <Link
-              href={event ? `/events/${event.slug}` : '/'}
+              href={event ? `/discover/${event.slug}` : '/'}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 transition-transform active:scale-95"
             >
               <Calendar className="w-4 h-4 text-[#4EED15]" />

@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000",
-    "fresh": "fuser -k 3000/tcp 2>/dev/null || true && next dev -p 3000",
+    "dev": "next dev --webpack -p 3000",
+    "fresh": "lsof -ti:3000 | xargs kill -9 2>/dev/null; next dev --webpack -p 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node tests/test-ticketing-flow.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

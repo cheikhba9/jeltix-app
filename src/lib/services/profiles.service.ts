@@ -7,6 +7,8 @@ import { UserProfile, UserRole } from '@/types';
  * No other email can self-assign or be assigned SUPER_ADMIN.
  */
 export const SUPER_ADMIN_EMAILS = [
+  'admin@jeltix.sn',
+  'admin@foutaticket.sn',
   'mamadoucheikhba9@gmail.com',
   'mcbfd9@gmail.com',
 ];

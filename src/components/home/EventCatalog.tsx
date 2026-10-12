@@ -92,8 +92,11 @@ export function EventCatalog() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredEvents.map((evt) => {
-            const minPrice = Math.min(...evt.ticketTypes.map((t) => t.price));
-            const fillRate = Math.round((evt.soldCapacity / evt.totalCapacity) * 100);
+            const ticketTypes = evt.ticketTypes || [];
+            const minPrice = ticketTypes.length > 0 ? Math.min(...ticketTypes.map((t) => t.price || 0)) : 0;
+            const totalCap = evt.totalCapacity || 1;
+            const soldCap = evt.soldCapacity || 0;
+            const fillRate = Math.round((soldCap / totalCap) * 100);
 
             return (
               <div
@@ -142,7 +145,7 @@ export function EventCatalog() {
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px] font-mono text-on-surface-variant">
                       <span>Remplissage</span>
-                      <span>{evt.soldCapacity.toLocaleString('fr-FR')} / {evt.totalCapacity.toLocaleString('fr-FR')} places</span>
+                      <span>{soldCap.toLocaleString('fr-FR')} / {totalCap.toLocaleString('fr-FR')} places</span>
                     </div>
                     <div className="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
                       <div

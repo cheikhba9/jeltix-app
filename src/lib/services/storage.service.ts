@@ -17,30 +17,7 @@ export async function uploadEventImage(file: File): Promise<string> {
     throw new Error("L'image est trop volumineuse. Taille maximale autorisée : 5 Mo.");
   }
 
-  const fileExt = file.name.split('.').pop() || 'jpg';
-  const fileName = `event-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
-  const filePath = `banners/${fileName}`;
-
-  try {
-    // Attempt upload to Supabase Storage 'event-banners' bucket
-    const { error: uploadError } = await supabase.storage
-      .from('event-banners')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-      });
-
-    if (!uploadError) {
-      const { data } = supabase.storage.from('event-banners').getPublicUrl(filePath);
-      if (data?.publicUrl) {
-        return data.publicUrl;
-      }
-    }
-  } catch (err) {
-    console.warn('Supabase storage upload fallback activated:', err);
-  }
-
-  // Graceful client-side fallback: Convert to Data URL (works without bucket setup)
+  // 100% local instant conversion to high quality Data URL
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {

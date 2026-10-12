@@ -125,7 +125,7 @@ export default function EventsManagementPage() {
   };
 
   const handleCopyPublicLink = (slug: string) => {
-    const url = `${window.location.origin}/events/${slug}`;
+    const url = `${window.location.origin}/discover/${slug}`;
     navigator.clipboard.writeText(url);
     addToast({
       type: 'success',
@@ -355,7 +355,7 @@ export default function EventsManagementPage() {
                           <Share2 className="w-3.5 h-3.5" />
                         </button>
                         <Link
-                          href={`/events/${evt.slug}`}
+                          href={`/discover/${evt.slug}`}
                           target="_blank"
                           className="p-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-colors"
                           title="Voir la page publique"
@@ -497,7 +497,7 @@ export default function EventsManagementPage() {
                               <Copy className="w-3.5 h-3.5" />
                             </button>
                             <Link
-                              href={`/events/${evt.slug}`}
+                              href={`/discover/${evt.slug}`}
                               target="_blank"
                               className="p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors"
                               title="Voir la page publique"
@@ -645,7 +645,7 @@ export default function EventsManagementPage() {
                 </button>
 
                 <Link
-                  href={`/events/${selectedEvent.slug}`}
+                  href={`/discover/${selectedEvent.slug}`}
                   target="_blank"
                   className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs hover:bg-primary-hover transition flex items-center justify-center gap-1.5"
                 >

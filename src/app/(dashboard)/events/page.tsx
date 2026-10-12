@@ -38,30 +38,31 @@ export default function EventsManagementPage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const ITEMS_PER_PAGE = 8;
 
-  // Accès restreint : Seuls Super Admin et Organisateurs peuvent gérer les événements
-  if (currentUser && currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'ORGANIZER') {
+  // Accès restreint : Le contrôleur n'a accès qu'au scanner
+  if (currentUser && currentUser.role === 'CONTROLLER') {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center">
         <div className="w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4 ring-8 ring-amber-500/10">
           <Lock className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-black text-on-surface mb-1">Accès Restreint</h2>
+        <h2 className="text-xl font-black text-on-surface mb-1">Espace Contrôleur de Billets</h2>
         <p className="text-xs text-on-surface-variant max-w-sm mb-5 leading-relaxed">
-          La gestion des événements et de la billetterie est réservée aux Organisateurs et Super Administrateurs.
+          Votre compte est dédié exclusivement au contrôle et validation des accès aux portes.
         </p>
         <Link
-          href={currentUser.role === 'SELLER' ? '/sales/pos' : '/scan'}
+          href="/scan"
           className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold inline-flex items-center gap-2 shadow-md hover:scale-[0.98] transition"
         >
-          <span>Aller à mon espace ({currentUser.role === 'SELLER' ? 'Guichet POS' : 'Scanner'})</span>
+          <span className="material-symbols-outlined text-[18px]">qr_code_scanner</span>
+          <span>Accéder au Scanner de Billets</span>
         </Link>
       </div>
     );
   }
 
-  // Multi-tenant isolation: Organizers strictly see only their own events
+  // Multi-tenant isolation: Organizers see their own events; Sellers and Super Admins see events they can sell/manage
   const scopedEvents = useMemo(() => {
-    if (!currentUser || currentUser.role === 'SUPER_ADMIN') {
+    if (!currentUser || currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SELLER') {
       return events;
     }
     return events.filter((evt) => evt.organizerId === currentUser.id);
@@ -163,13 +164,23 @@ export default function EventsManagementPage() {
           </p>
         </div>
 
-        <Link
-          href="/events/new"
-          className="bg-primary hover:bg-primary-hover text-on-primary px-5 py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-lg shadow-primary/20 hover:scale-[0.98] active:scale-95"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Créer un événement</span>
-        </Link>
+        {currentUser?.role === 'SELLER' ? (
+          <Link
+            href="/sales/pos"
+            className="bg-primary hover:bg-primary-hover text-on-primary px-5 py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-lg shadow-primary/20 hover:scale-[0.98] active:scale-95"
+          >
+            <span className="material-symbols-outlined text-[18px]">point_of_sale</span>
+            <span>Ouvrir le Guichet POS</span>
+          </Link>
+        ) : (
+          <Link
+            href="/events/new"
+            className="bg-primary hover:bg-primary-hover text-on-primary px-5 py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-lg shadow-primary/20 hover:scale-[0.98] active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Créer un événement</span>
+          </Link>
+        )}
       </div>
 
       {/* 4 Summary Stat Cards */}
@@ -316,21 +327,46 @@ export default function EventsManagementPage() {
                         <Calendar className="w-3.5 h-3.5 text-primary" />
                         <span>{formatDateFrench(evt.startDate)}</span>
                       </div>
-                      <select
-                        value={evt.status}
-                        onChange={(e) => handleStatusChange(evt.id, e.target.value as EventStatus)}
-                        className={`px-2 py-1 rounded-full text-[10px] font-extrabold font-mono border cursor-pointer outline-none ${
-                          evt.status === 'PUBLISHED'
-                            ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-500/30'
-                            : evt.status === 'DRAFT'
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-400/30'
-                            : 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-500/30'
-                        }`}
-                      >
-                        <option value="PUBLISHED">● PUBLIÉ</option>
-                        <option value="DRAFT">● BROUILLON</option>
-                        <option value="CLOSED">🔒 CLÔTURÉ</option>
-                      </select>
+                      {currentUser?.role === 'SELLER' ? (
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold font-mono border ${
+                            evt.status === 'PUBLISHED'
+                              ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-500/30'
+                              : evt.status === 'DRAFT'
+                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-400/30'
+                              : 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-500/30'
+                          }`}
+                        >
+                          {evt.status === 'PUBLISHED' ? '● PUBLIÉ' : evt.status === 'DRAFT' ? '● BROUILLON' : '🔒 CLÔTURÉ'}
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={evt.status}
+                            onChange={(e) => handleStatusChange(evt.id, e.target.value as EventStatus)}
+                            className={`px-2 py-1 rounded-full text-[10px] font-extrabold font-mono border cursor-pointer outline-none ${
+                              evt.status === 'PUBLISHED'
+                                ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-500/30'
+                                : evt.status === 'DRAFT'
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-400/30'
+                                : 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-500/30'
+                            }`}
+                          >
+                            <option value="PUBLISHED">● PUBLIÉ</option>
+                            <option value="DRAFT">● BROUILLON</option>
+                            <option value="CLOSED">🔒 CLÔTURÉ</option>
+                          </select>
+                          {evt.status === 'DRAFT' && (
+                            <button
+                              onClick={() => handleStatusChange(evt.id, 'PUBLISHED')}
+                              className="px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-[10px] font-black uppercase transition cursor-pointer shadow-xs"
+                              title="Publier directement"
+                            >
+                              Publier
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <div className="flex justify-between font-mono text-[11px]">
@@ -354,6 +390,16 @@ export default function EventsManagementPage() {
                         {evt.venue}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
+                        {currentUser?.role === 'SELLER' ? (
+                          <Link
+                            href={`/sales/pos?event=${evt.id}`}
+                            className="px-2.5 py-1.5 rounded-xl bg-primary text-on-primary text-xs font-bold flex items-center gap-1 shadow-sm"
+                            title="Ouvrir le guichet pour cet événement"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">point_of_sale</span>
+                            <span>Guichet</span>
+                          </Link>
+                        ) : null}
                         <button
                           onClick={() => setSelectedEvent(evt)}
                           className="p-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-colors"
@@ -376,13 +422,15 @@ export default function EventsManagementPage() {
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </Link>
-                        <button
-                          onClick={() => handleDelete(evt.id, evt.title)}
-                          className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors"
-                          title="Supprimer l'événement"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {currentUser?.role !== 'SELLER' && (
+                          <button
+                            onClick={() => handleDelete(evt.id, evt.title)}
+                            className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors"
+                            title="Supprimer l'événement"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -493,25 +541,60 @@ export default function EventsManagementPage() {
                         </td>
 
                         <td className="p-4 text-center">
-                          <select
-                            value={evt.status}
-                            onChange={(e) => handleStatusChange(evt.id, e.target.value as EventStatus)}
-                            className={`px-3 py-1 rounded-full text-[10px] font-extrabold font-mono border cursor-pointer outline-none ${
-                              evt.status === 'PUBLISHED'
-                                ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-500/30'
-                                : evt.status === 'DRAFT'
-                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-400/30'
-                                : 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-500/30'
-                            }`}
-                          >
-                            <option value="PUBLISHED">● PUBLIÉ</option>
-                            <option value="DRAFT">● BROUILLON</option>
-                            <option value="CLOSED">🔒 CLÔTURÉ</option>
-                          </select>
+                          {currentUser?.role === 'SELLER' ? (
+                            <span
+                              className={`px-3 py-1 rounded-full text-[10px] font-extrabold font-mono border inline-block ${
+                                evt.status === 'PUBLISHED'
+                                  ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-500/30'
+                                  : evt.status === 'DRAFT'
+                                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-400/30'
+                                  : 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-500/30'
+                              }`}
+                            >
+                              {evt.status === 'PUBLISHED' ? '● PUBLIÉ' : evt.status === 'DRAFT' ? '● BROUILLON' : '🔒 CLÔTURÉ'}
+                            </span>
+                          ) : (
+                            <div className="flex items-center justify-center gap-1.5">
+                              <select
+                                value={evt.status}
+                                onChange={(e) => handleStatusChange(evt.id, e.target.value as EventStatus)}
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold font-mono border cursor-pointer outline-none ${
+                                  evt.status === 'PUBLISHED'
+                                    ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-500/30'
+                                    : evt.status === 'DRAFT'
+                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-400/30'
+                                    : 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-500/30'
+                                }`}
+                              >
+                                <option value="PUBLISHED">● PUBLIÉ</option>
+                                <option value="DRAFT">● BROUILLON</option>
+                                <option value="CLOSED">🔒 CLÔTURÉ</option>
+                              </select>
+                              {evt.status === 'DRAFT' && (
+                                <button
+                                  onClick={() => handleStatusChange(evt.id, 'PUBLISHED')}
+                                  className="px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-[10px] font-black uppercase transition cursor-pointer shadow-xs"
+                                  title="Publier directement sur la page publique"
+                                >
+                                  Publier
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </td>
 
                         <td className="p-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            {currentUser?.role === 'SELLER' && (
+                              <Link
+                                href={`/sales/pos?event=${evt.id}`}
+                                className="px-3 py-1.5 rounded-xl bg-primary text-on-primary text-xs font-bold flex items-center gap-1.5 shadow-sm hover:scale-[0.98] transition cursor-pointer"
+                                title="Vendre des billets au guichet POS"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">point_of_sale</span>
+                                <span>Guichet</span>
+                              </Link>
+                            )}
                             <button
                               onClick={() => setSelectedEvent(evt)}
                               className="p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors cursor-pointer"
@@ -534,13 +617,15 @@ export default function EventsManagementPage() {
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
                             </Link>
-                            <button
-                              onClick={() => handleDelete(evt.id, evt.title)}
-                              className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors cursor-pointer"
-                              title="Supprimer l'événement"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {currentUser?.role !== 'SELLER' && (
+                              <button
+                                onClick={() => handleDelete(evt.id, evt.title)}
+                                className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors cursor-pointer"
+                                title="Supprimer l'événement"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

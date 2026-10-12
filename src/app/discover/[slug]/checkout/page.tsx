@@ -132,6 +132,18 @@ export default function CheckoutPage({
         channel: 'ONLINE',
       });
 
+      // Store tickets in client's device localStorage for frictionless "Mes Billets" access
+      if (typeof window !== 'undefined') {
+        try {
+          const existingCodes = JSON.parse(localStorage.getItem('jeltix_my_tickets') || '[]');
+          const newCodes = result.generatedTickets.map((t) => t.ticketCode);
+          const merged = Array.from(new Set([...newCodes, ...existingCodes]));
+          localStorage.setItem('jeltix_my_tickets', JSON.stringify(merged));
+          localStorage.setItem('jeltix_customer_phone', validation.data.customerPhone);
+          localStorage.setItem('jeltix_customer_name', validation.data.customerName);
+        } catch {}
+      }
+
       playSuccessBeep();
       confetti({
         particleCount: 100,

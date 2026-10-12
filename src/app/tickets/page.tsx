@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useJeltixStore } from '@/lib/store/jeltix-store';
 import { formatDateFrench, formatDateWithDay, formatFCFA } from '@/lib/utils/format';
@@ -43,21 +43,37 @@ export default function MyTicketsPage() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [lookupCode, setLookupCode] = useState('');
   const [lookupError, setLookupError] = useState<string | null>(null);
+  const [devicePhone, setDevicePhone] = useState<string | null>(null);
 
-  // Filter user tickets
+  // Check saved customer details on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedPhone = localStorage.getItem('jeltix_customer_phone');
+      if (savedPhone) {
+        setDevicePhone(savedPhone);
+      }
+    }
+  }, []);
+
+  // Filter user tickets (matches code, title, name or phone)
   const filteredTickets = useMemo(() => {
     return tickets.filter((t) => {
-      // Status
+      // Status filter
       if (statusFilter === 'ACTIVE' && t.status !== 'VALID') return false;
       if (statusFilter === 'USED' && t.status !== 'USED') return false;
 
-      // Query
+      // Query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
+        const cleanQueryPhone = q.replace(/\D/g, '');
+        const cleanTicketPhone = (t.customerPhone || '').replace(/\D/g, '');
+
         const codeMatch = t.ticketCode.toLowerCase().includes(q);
         const eventMatch = t.eventTitle.toLowerCase().includes(q);
         const nameMatch = t.customerName.toLowerCase().includes(q);
-        if (!codeMatch && !eventMatch && !nameMatch) return false;
+        const phoneMatch = cleanQueryPhone.length >= 3 && cleanTicketPhone.includes(cleanQueryPhone);
+
+        if (!codeMatch && !eventMatch && !nameMatch && !phoneMatch) return false;
       }
 
       return true;
@@ -73,23 +89,43 @@ export default function MyTicketsPage() {
     const clean = lookupCode.trim().toUpperCase();
     if (!clean) return;
 
-    const found = getTicketByCode(clean);
-    if (found) {
-      setSelectedTicket(found);
+    // 1. Check if input is a ticket code
+    const foundByCode = getTicketByCode(clean);
+    if (foundByCode) {
+      setSelectedTicket(foundByCode);
       setLookupCode('');
       addToast({
         type: 'success',
         title: 'Billet localisé !',
-        message: `Billet #${found.ticketCode} trouvé dans le registre officiel.`,
+        message: `Billet #${foundByCode.ticketCode} trouvé dans le registre officiel.`,
       });
-    } else {
-      setLookupError(`Aucun billet trouvé pour le code "${clean}". Vérifiez votre SMS de confirmation.`);
-      addToast({
-        type: 'error',
-        title: 'Code Invalide',
-        message: `Le billet #${clean} est introuvable.`,
-      });
+      return;
     }
+
+    // 2. Check if input is a phone number (e.g. 77..., +221...)
+    const digitsOnly = clean.replace(/\D/g, '');
+    if (digitsOnly.length >= 5) {
+      const matchingTickets = tickets.filter((t) =>
+        (t.customerPhone || '').replace(/\D/g, '').includes(digitsOnly)
+      );
+      if (matchingTickets.length > 0) {
+        setSearchQuery(lookupCode.trim());
+        setLookupCode('');
+        addToast({
+          type: 'success',
+          title: `${matchingTickets.length} billet(s) trouvé(s) !`,
+          message: `Affichage des billets rattachés au numéro ${lookupCode}.`,
+        });
+        return;
+      }
+    }
+
+    setLookupError(`Aucun billet trouvé pour "${lookupCode}". Vérifiez le code (ex: JT-...) ou votre numéro de téléphone.`);
+    addToast({
+      type: 'error',
+      title: 'Introuvable',
+      message: `Aucun billet n'a été trouvé avec cette référence.`,
+    });
   };
 
   return (
@@ -164,7 +200,7 @@ export default function MyTicketsPage() {
             </div>
           </div>
 
-          {/* Quick Ticket Lookup by Code */}
+          {/* Quick Ticket Lookup by Code or Phone */}
           <form
             onSubmit={handleLookup}
             className="lg:col-span-5 bg-surface-container rounded-2xl p-4 border border-outline-variant/30 flex flex-col justify-center"
@@ -174,8 +210,8 @@ export default function MyTicketsPage() {
                 type="text"
                 value={lookupCode}
                 onChange={(e) => setLookupCode(e.target.value)}
-                placeholder="Code billet reçu par SMS (ex: JT-7777)…"
-                className="flex-1 bg-surface-container-high text-on-surface placeholder:text-on-surface-variant/60 text-xs px-3.5 py-2.5 rounded-xl border border-outline-variant/40 focus:border-primary focus:outline-none font-mono uppercase"
+                placeholder="Code billet (ex: JT-7777) ou n° téléphone…"
+                className="flex-1 bg-surface-container-high text-on-surface placeholder:text-on-surface-variant/60 text-xs px-3.5 py-2.5 rounded-xl border border-outline-variant/40 focus:border-primary focus:outline-none font-mono"
               />
               <button
                 type="submit"
@@ -185,6 +221,15 @@ export default function MyTicketsPage() {
                 <span>Afficher</span>
               </button>
             </div>
+            {devicePhone && !searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery(devicePhone)}
+                className="mt-2 text-[11px] text-primary hover:underline font-mono flex items-center gap-1 text-left cursor-pointer"
+              >
+                <span>📱 Retrouver les billets rattachés à mon numéro ({devicePhone})</span>
+              </button>
+            )}
             {lookupError && (
               <p className="text-[11px] text-error font-medium mt-1.5">{lookupError}</p>
             )}
@@ -275,6 +320,18 @@ export default function MyTicketsPage() {
                         <span>Voir QR Code</span>
                       </button>
 
+                      <a
+                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                          `🎟️ *Mon e-Billet Jël Tix*\n*Événement :* ${t.eventTitle}\n*Billet :* ${t.ticketTypeName}\n*Porteur :* ${t.customerName}\n*Code Unique :* ${t.ticketCode}\n👉 Voir mon QR Code :\n${typeof window !== 'undefined' ? window.location.origin : 'https://jeltix.sn'}/tickets/${t.ticketCode}`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="py-2.5 px-3 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] text-white text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm"
+                        title="Partager ce billet sur WhatsApp"
+                      >
+                        <span className="material-symbols-outlined text-[17px]">chat</span>
+                      </a>
+
                       <Link
                         href={`/tickets/${t.ticketCode}`}
                         className="py-2.5 px-3 rounded-xl bg-primary hover:bg-primary-hover text-on-primary text-xs font-bold transition flex items-center justify-center gap-1"
@@ -346,17 +403,31 @@ export default function MyTicketsPage() {
             </div>
 
             {/* Action buttons */}
-            <div className="flex gap-2 pt-2">
-              <Link
-                href={`/tickets/${selectedTicket.ticketCode}`}
-                className="flex-1 py-3 rounded-xl bg-primary text-on-primary font-bold text-xs hover:bg-primary-hover transition flex items-center justify-center gap-1.5"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>Page Plein Écran</span>
-              </Link>
+            <div className="flex flex-col gap-2 pt-2">
+              <div className="flex gap-2">
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                    `🎟️ *Mon e-Billet Jël Tix*\n*Événement :* ${selectedTicket.eventTitle}\n*Billet :* ${selectedTicket.ticketTypeName}\n*Porteur :* ${selectedTicket.customerName}\n*Code Unique :* ${selectedTicket.ticketCode}\n👉 Voir mon QR Code :\n${typeof window !== 'undefined' ? window.location.origin : 'https://jeltix.sn'}/tickets/${selectedTicket.ticketCode}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-3 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] text-white font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
+                  title="Envoyer sur WhatsApp"
+                >
+                  <span className="material-symbols-outlined text-[17px]">chat</span>
+                  <span>WhatsApp</span>
+                </a>
+                <Link
+                  href={`/tickets/${selectedTicket.ticketCode}`}
+                  className="flex-1 py-3 rounded-xl bg-primary text-on-primary font-bold text-xs hover:bg-primary-hover transition flex items-center justify-center gap-1.5"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Plein Écran</span>
+                </Link>
+              </div>
               <button
                 onClick={() => setSelectedTicket(null)}
-                className="px-4 py-3 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs transition cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs transition cursor-pointer"
               >
                 Fermer
               </button>

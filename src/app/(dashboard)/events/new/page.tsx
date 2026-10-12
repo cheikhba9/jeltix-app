@@ -129,8 +129,7 @@ export default function NewEventPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitWithStatus = async (chosenStatus: 'PUBLISHED' | 'DRAFT') => {
     if (!title || !venue || !startDate) {
       setErrorMessage('Veuillez renseigner tous les champs obligatoires (*).');
       return;
@@ -165,7 +164,7 @@ export default function NewEventPage() {
       timeString: timeString || '18:00 UTC',
       bannerImage,
       description: description || `Événement majeur organisé au ${venue}.`,
-      status: 'PUBLISHED' as const,
+      status: chosenStatus,
       totalCapacity: Number(totalCapacity),
       organizerId,
       organizerName,
@@ -191,6 +190,11 @@ export default function NewEventPage() {
 
     setIsSubmitting(false);
     router.push('/events');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitWithStatus('PUBLISHED');
   };
 
   return (
@@ -515,7 +519,7 @@ export default function NewEventPage() {
         </div>
 
         {/* Action Button Bar */}
-        <div className="flex items-center justify-end gap-3 pt-4">
+        <div className="flex flex-wrap items-center justify-end gap-3 pt-4">
           <Link
             href="/events"
             className="px-5 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-bold transition-colors"
@@ -523,8 +527,17 @@ export default function NewEventPage() {
             Annuler
           </Link>
           <button
-            type="submit"
+            type="button"
             disabled={isSubmitting || isUploading}
+            onClick={() => submitWithStatus('DRAFT')}
+            className="px-5 py-2.5 rounded-xl bg-surface-container-highest hover:bg-surface-container-high border border-outline-variant/40 text-on-surface text-xs font-bold transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            <span>Enregistrer en Brouillon</span>
+          </button>
+          <button
+            type="button"
+            disabled={isSubmitting || isUploading}
+            onClick={() => submitWithStatus('PUBLISHED')}
             className="px-6 py-2.5 rounded-xl bg-[#0038A8] text-white hover:bg-[#002D8C] text-xs font-black shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {isSubmitting ? (
@@ -535,7 +548,7 @@ export default function NewEventPage() {
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4 text-[#4EED15]" />
-                <span>Enregistrer & Publier l'Événement</span>
+                <span>Publier Immédiatement</span>
               </>
             )}
           </button>

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { Menu, X, QrCode, CreditCard, LayoutDashboard, Calendar, LogIn } from 'lucide-react';
+import { Menu, X, QrCode, CreditCard, LayoutDashboard, Calendar, LogIn, Ticket } from 'lucide-react';
 
 export function PublicHeader() {
   const pathname = usePathname();
@@ -56,7 +56,7 @@ export function PublicHeader() {
             href="/tickets"
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-[#0038A8] dark:text-white font-bold text-xs border border-slate-200 dark:border-white/10 transition-colors"
           >
-            <span className="material-symbols-outlined text-[16px] text-[#2CA808] dark:text-[#4EED15]">confirmation_number</span>
+            <Ticket className="w-4 h-4 text-[#2CA808] dark:text-[#4EED15]" />
             <span>Mes Billets</span>
           </Link>
 

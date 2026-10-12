@@ -1204,7 +1204,20 @@ export default function UsersPage() {
     currentUser?.role === 'SUPER_ADMIN' ||
     (Boolean(currentUser?.email) && isSuperAdminEmail(currentUser!.email));
 
-  // Access denied for anyone who is not a Super Admin
+  // Vue Organisateur : Gestion directe de son équipe (Vendeurs & Contrôleurs)
+  if (currentUser?.role === 'ORGANIZER') {
+    return (
+      <div className="flex flex-col gap-6">
+        <OrganizerTeamView
+          organizerId={currentUser.id}
+          organizerName={currentUser.organization || currentUser.fullName || 'Mon Organisation'}
+          organizerEmail={currentUser.email}
+        />
+      </div>
+    );
+  }
+
+  // Accès restreint pour les vendeurs et contrôleurs
   if (currentUser && !isSuper) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center">
@@ -1213,14 +1226,14 @@ export default function UsersPage() {
         </div>
         <h2 className="text-xl font-black text-on-surface mb-2">Accès Restreint</h2>
         <p className="text-xs text-on-surface-variant max-w-md mb-6 leading-relaxed">
-          La gestion globale des utilisateurs et des comptes est réservée exclusivement aux Super Administrateurs de Jël Tix.
+          La gestion de l'équipe et des comptes est réservée exclusivement aux Organisateurs et Super Administrateurs de Jël Tix.
         </p>
         <Link
-          href="/dashboard"
+          href={currentUser?.role === 'SELLER' ? '/sales/pos' : currentUser?.role === 'CONTROLLER' ? '/scan' : '/dashboard'}
           className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Retourner au Tableau de Bord</span>
+          <span>Retourner à mon espace ({currentUser?.role === 'SELLER' ? 'Guichet POS' : currentUser?.role === 'CONTROLLER' ? 'Scanner' : 'Tableau de bord'})</span>
         </Link>
       </div>
     );

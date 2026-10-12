@@ -28,38 +28,58 @@ import {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { currentUser, orders } = useJeltixStore();
+  const { currentUser, orders, events } = useJeltixStore();
   const role = currentUser?.role;
   const isAdmin = role === 'SUPER_ADMIN';
   const isOrganizer = role === 'ORGANIZER';
+  const isSeller = role === 'SELLER';
 
   const [kpis, setKpis] = useState<PlatformKPIs | OrganizerKPIs | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Redirection automatique pour les rôles terrain
+  // Redirection automatique UNIQUEMENT pour les contrôleurs qui n'ont accès qu'au scanner
   useEffect(() => {
-    if (role === 'SELLER') {
-      router.replace('/sales/pos');
-    } else if (role === 'CONTROLLER') {
+    if (role === 'CONTROLLER') {
       router.replace('/scan');
     }
   }, [role, router]);
 
   const loadKPIs = useCallback(async () => {
-    if (!isAdmin && !isOrganizer) return;
+    if (!isAdmin && !isOrganizer && !isSeller) return;
     setLoading(true);
     try {
       if (isAdmin) {
         setKpis(await fetchPlatformKPIs());
       } else if (isOrganizer && currentUser?.id) {
         setKpis(await fetchOrganizerKPIs(currentUser.id));
+      } else if (isSeller) {
+        // KPIs pour le Vendeur : ses ventes au guichet + événements actifs
+        const sellerOrders = currentUser?.id ? orders.filter((o) => o.sellerId === currentUser.id) : orders;
+        const totalRevenue = sellerOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+        const totalTicketsSold = sellerOrders.reduce(
+          (sum, o) => sum + (o.items?.reduce((acc, it) => acc + it.quantity, 0) || 1),
+          0
+        );
+        const activeEventsCount = events.filter((e) => e.status === 'PUBLISHED').length;
+
+        setKpis({
+          totalRevenue,
+          revenueGrowth: 0,
+          totalTicketsSold,
+          ticketsGrowth: 0,
+          activeEventsCount,
+          successfulScansToday: 0,
+          recentScans: [],
+          hourlySales: [],
+          topEvents: [],
+        } as any);
       }
     } catch (err) {
       console.warn('Dashboard KPI load error:', err);
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, isOrganizer, currentUser?.id]);
+  }, [isAdmin, isOrganizer, isSeller, currentUser?.id, orders, events]);
 
   useEffect(() => {
     loadKPIs();
@@ -162,35 +182,64 @@ export default function DashboardPage() {
 
       {/* ── Quick Actions Row ─────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-fade-up stagger-4">
-        {/* Créer un événement */}
-        <Link
-          href="/events/new"
-          prefetch={true}
-          className="bg-white dark:bg-[#0B1936] rounded-2xl p-6 shadow-xs flex flex-col justify-between group overflow-hidden relative min-h-[160px] border border-slate-200/90 dark:border-white/10 card-hover-glow"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0038A8]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-          <div className="relative z-10 flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#0038A8]/10 dark:bg-[#0038A8]/20 text-[#0038A8] dark:text-[#4EED15] flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shrink-0">
-              <Plus className="w-6 h-6" />
+        {/* Créer un événement ou Ouvrir Guichet POS */}
+        {isSeller ? (
+          <Link
+            href="/sales/pos"
+            prefetch={true}
+            className="bg-white dark:bg-[#0B1936] rounded-2xl p-6 shadow-xs flex flex-col justify-between group overflow-hidden relative min-h-[160px] border border-slate-200/90 dark:border-white/10 card-hover-glow"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="relative z-10 flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-[#4EED15] flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shrink-0">
+                <ShoppingBag className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  Ouvrir le Guichet POS
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Encaissez les spectateurs et émettez des billets imprimables en temps réel.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-white">
-                Créer un Événement
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                Configurez un match, festival ou gala avec tarification et quotas.
-              </p>
+            <div className="relative z-10 flex justify-end mt-4">
+              <span className="bg-[#4EED15] text-[#002D8C] font-black text-xs px-4 py-2.5 rounded-xl shadow-sm group-hover:bg-[#42D40F] transition-all inline-flex items-center gap-2">
+                <span>Vendre au Guichet</span>
+                <ArrowRight className="w-4 h-4" />
+              </span>
             </div>
-          </div>
-          <div className="relative z-10 flex justify-end mt-4">
-            <span className="bg-[#0038A8] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm group-hover:bg-[#002D8C] group-hover:shadow-md transition-all inline-flex items-center gap-2">
-              <span>Créer</span>
-              <ArrowRight className="w-4 h-4" />
-            </span>
-          </div>
-        </Link>
+          </Link>
+        ) : (
+          <Link
+            href="/events/new"
+            prefetch={true}
+            className="bg-white dark:bg-[#0B1936] rounded-2xl p-6 shadow-xs flex flex-col justify-between group overflow-hidden relative min-h-[160px] border border-slate-200/90 dark:border-white/10 card-hover-glow"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-[#0038A8]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="relative z-10 flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#0038A8]/10 dark:bg-[#0038A8]/20 text-[#0038A8] dark:text-[#4EED15] flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shrink-0">
+                <Plus className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  Créer un Événement
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Configurez un match, festival ou gala avec tarification et quotas.
+                </p>
+              </div>
+            </div>
+            <div className="relative z-10 flex justify-end mt-4">
+              <span className="bg-[#0038A8] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm group-hover:bg-[#002D8C] group-hover:shadow-md transition-all inline-flex items-center gap-2">
+                <span>Créer</span>
+                <ArrowRight className="w-4 h-4" />
+              </span>
+            </div>
+          </Link>
+        )}
 
-        {/* Admin → Gestion équipe | Organisateur → Mes événements */}
+        {/* Admin → Gestion équipe | Vendeur → Consulter événements | Organisateur → Mes événements */}
         {currentUser?.role === 'SUPER_ADMIN' ? (
           <Link
             href="/users"
@@ -212,6 +261,31 @@ export default function DashboardPage() {
             <div className="relative z-10 flex justify-end mt-4">
               <span className="bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white font-bold text-xs px-4 py-2.5 rounded-xl group-hover:bg-slate-200 dark:group-hover:bg-white/20 transition-all inline-flex items-center gap-2 border border-slate-200 dark:border-white/10">
                 <span>Gérer les équipes</span>
+                <ArrowRight className="w-4 h-4" />
+              </span>
+            </div>
+          </Link>
+        ) : isSeller ? (
+          <Link
+            href="/events"
+            prefetch={true}
+            className="bg-white dark:bg-[#0B1936] rounded-2xl p-6 shadow-xs flex flex-col justify-between group overflow-hidden relative min-h-[160px] border border-slate-200/90 dark:border-white/10 card-hover-glow"
+          >
+            <div className="absolute inset-0 bg-gradient-to-bl from-blue-50/80 via-transparent to-transparent dark:from-blue-950/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="relative z-10 flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-[#4EED15] flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shrink-0">
+                <Calendar className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">Catalogue des Événements</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Consultez les événements en vente, vérifiez les jauges et les tarifs des billets.
+                </p>
+              </div>
+            </div>
+            <div className="relative z-10 flex justify-end mt-4">
+              <span className="bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-[#4EED15] font-bold text-xs px-4 py-2.5 rounded-xl group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 transition-all inline-flex items-center gap-2 border border-blue-200 dark:border-blue-800/30">
+                <span>Consulter les événements</span>
                 <ArrowRight className="w-4 h-4" />
               </span>
             </div>

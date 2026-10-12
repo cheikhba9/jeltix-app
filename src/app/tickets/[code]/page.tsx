@@ -67,6 +67,18 @@ export default function TicketViewPage({
 
   const isUsed = ticket.status === 'USED';
 
+  const whatsappShareUrl = () => {
+    const currentUrl = typeof window !== 'undefined' ? window.location.href : `https://jeltix.sn/tickets/${ticket.ticketCode}`;
+    const text = `🎟️ *Mon e-Billet Jël Tix*\n\n` +
+      `*Événement :* ${ticket.eventTitle}\n` +
+      `*Billet :* ${ticket.ticketTypeName}\n` +
+      `*Porteur :* ${ticket.customerName}\n` +
+      `*Code Unique :* ${ticket.ticketCode}\n` +
+      `*Porte d'accès :* ${ticket.gateRecommendation}\n\n` +
+      `👉 Consulter et présenter mon QR Code officiel :\n${currentUrl}`;
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+  };
+
   const handleShare = () => {
     if (typeof window !== 'undefined') {
       const shareUrl = window.location.href;
@@ -90,7 +102,7 @@ export default function TicketViewPage({
 
       <main className="flex-1 w-full max-w-3xl mx-auto p-4 sm:p-6 md:p-8 flex flex-col items-center justify-center">
         {/* Top Actions bar */}
-        <div className="w-full flex justify-between items-center mb-6">
+        <div className="w-full flex flex-wrap justify-between items-center gap-3 mb-6">
           <Link
             href="/"
             className="text-xs font-bold text-white/70 hover:text-white flex items-center gap-1.5 transition-colors"
@@ -99,7 +111,18 @@ export default function TicketViewPage({
             <span>Tous les événements</span>
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={whatsappShareUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-[#25D366]/20 transition-all cursor-pointer"
+              title="Envoyer ou partager sur WhatsApp"
+            >
+              <span className="material-symbols-outlined text-[17px]">chat</span>
+              <span>WhatsApp</span>
+            </a>
+
             <button
               onClick={handleShare}
               className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold flex items-center gap-1.5 border border-white/10 transition-colors cursor-pointer"
@@ -253,6 +276,30 @@ export default function TicketViewPage({
             <ShieldCheck className="w-4 h-4 text-[#0038A8]" />
             <span>Signature Cryptographique Jël Tix • Anti-Double Passage Activé</span>
           </div>
+        </div>
+
+        {/* WhatsApp Callout Action */}
+        <div className="w-full mt-6 bg-[#25D366]/10 border border-[#25D366]/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-[#25D366] text-white flex items-center justify-center shrink-0 shadow-md shadow-[#25D366]/25">
+              <span className="material-symbols-outlined text-[24px]">chat</span>
+            </div>
+            <div>
+              <p className="text-sm font-black text-white">Recevoir mon e-billet sur WhatsApp</p>
+              <p className="text-xs text-white/70">
+                Conservez votre lien officiel et votre QR code directement dans votre discussion WhatsApp.
+              </p>
+            </div>
+          </div>
+          <a
+            href={whatsappShareUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] text-white text-xs font-black flex items-center justify-center gap-2 shadow-lg shadow-[#25D366]/25 transition-transform active:scale-95 shrink-0"
+          >
+            <span className="material-symbols-outlined text-[18px]">send</span>
+            <span>Envoyer sur WhatsApp</span>
+          </a>
         </div>
 
         {/* Quick Simulator link for controllers */}

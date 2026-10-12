@@ -24,43 +24,43 @@ const NAV_ITEMS = [
   {
     href: '/dashboard',
     label: 'Tableau de bord',
-    materialIcon: 'dashboard',
-    roles: ['SUPER_ADMIN', 'ORGANIZER'],
+    icon: LayoutDashboard,
+    roles: ['SUPER_ADMIN', 'ORGANIZER', 'SELLER'],
     description: 'Vue d\'ensemble & KPIs',
   },
   {
     href: '/events',
     label: 'Événements',
-    materialIcon: 'event',
-    roles: ['SUPER_ADMIN', 'ORGANIZER'],
-    description: 'Gérer la billetterie',
+    icon: Calendar,
+    roles: ['SUPER_ADMIN', 'ORGANIZER', 'SELLER'],
+    description: 'Catalogue & Billetterie',
   },
   {
     href: '/sales',
     label: 'Ventes & Recettes',
-    materialIcon: 'payments',
+    icon: CreditCard,
     roles: ['SUPER_ADMIN', 'ORGANIZER', 'SELLER'],
     description: 'Journal des transactions',
   },
   {
     href: '/scans',
     label: 'Contrôle & Scans',
-    materialIcon: 'qr_code_scanner',
-    roles: ['SUPER_ADMIN', 'CONTROLLER'],
+    icon: QrCode,
+    roles: ['SUPER_ADMIN', 'ORGANIZER', 'CONTROLLER'],
     description: 'Historique des scans',
   },
   {
     href: '/reports',
     label: 'Rapports & Audit',
-    materialIcon: 'bar_chart',
+    icon: BarChart3,
     roles: ['SUPER_ADMIN', 'ORGANIZER'],
     description: 'Analytics & exports',
   },
   {
     href: '/users',
     label: 'Gestion Utilisateurs',
-    materialIcon: 'group',
-    roles: ['SUPER_ADMIN'],
+    icon: Users,
+    roles: ['SUPER_ADMIN', 'ORGANIZER'],
     description: 'Équipes & permissions',
   },
 ];
@@ -159,21 +159,21 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
                       <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-[#4EED15] rounded-r-full" />
                     )}
 
-                    <span
-                      className={`material-symbols-outlined text-[20px] shrink-0 ${
+                    <item.icon
+                      className={`w-5 h-5 shrink-0 ${
                         isActive
                           ? 'text-white'
                           : 'text-slate-400 dark:text-white/40 group-hover:text-slate-700 dark:group-hover:text-white/70'
                       }`}
-                    >
-                      {item.materialIcon}
-                    </span>
+                    />
 
                     <div className="flex-1 min-w-0">
-                      <span className="block truncate">{item.label}</span>
+                      <span className="block truncate">
+                        {item.href === '/users' && userRole === 'ORGANIZER' ? 'Mon Équipe' : item.label}
+                      </span>
                       {!isActive && (
                         <span className="text-[10px] text-slate-400 dark:text-white/30 font-normal hidden group-hover:block transition-all">
-                          {item.description}
+                          {item.href === '/users' && userRole === 'ORGANIZER' ? 'Vendeurs & Contrôleurs' : item.description}
                         </span>
                       )}
                     </div>
@@ -189,7 +189,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
               Terrain
             </p>
 
-            {(userRole === 'SUPER_ADMIN' || userRole === 'SELLER') && (
+            {(userRole === 'SUPER_ADMIN' || userRole === 'ORGANIZER' || userRole === 'SELLER') && (
               <Link
                 href="/sales/pos"
                 prefetch={true}
@@ -203,9 +203,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
                 {pathname === '/sales/pos' && (
                   <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-[#4EED15] rounded-r-full" />
                 )}
-                <span className="material-symbols-outlined text-[20px] text-emerald-500 dark:text-[#4EED15] shrink-0">
-                  point_of_sale
-                </span>
+                <CreditCard className="w-5 h-5 text-emerald-500 dark:text-[#4EED15] shrink-0" />
                 <div className="flex-1 min-w-0">
                   <span className="block truncate">Guichet POS</span>
                   <span className="text-[10px] text-emerald-500/70 dark:text-[#4EED15]/60 font-normal">
@@ -215,7 +213,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
               </Link>
             )}
 
-            {(userRole === 'SUPER_ADMIN' || userRole === 'CONTROLLER') && (
+            {(userRole === 'SUPER_ADMIN' || userRole === 'ORGANIZER' || userRole === 'CONTROLLER') && (
               <Link
                 href="/scan"
                 prefetch={true}
@@ -223,9 +221,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
                 onClick={onCloseMobile}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 active:scale-[0.98] text-sm font-medium text-slate-600 dark:text-white/65 hover:bg-slate-100 dark:hover:bg-white/6 hover:text-slate-900 dark:hover:text-white group"
               >
-                <span className="material-symbols-outlined text-[20px] text-[#0038A8] dark:text-[#4EED15] shrink-0">
-                  qr_code_scanner
-                </span>
+                <QrCode className="w-5 h-5 text-[#0038A8] dark:text-[#4EED15] shrink-0" />
                 <div className="flex-1 min-w-0">
                   <span className="block truncate">Scanner Contrôleur</span>
                   <span className="text-[10px] text-slate-400/70 dark:text-white/30 font-normal">
@@ -243,9 +239,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
               onClick={onCloseMobile}
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 active:scale-[0.98] text-sm font-medium text-slate-600 dark:text-white/65 hover:bg-slate-100 dark:hover:bg-white/6 hover:text-slate-900 dark:hover:text-white group"
             >
-              <span className="material-symbols-outlined text-[20px] text-slate-400 dark:text-white/40 group-hover:text-[#0038A8] dark:group-hover:text-[#4EED15] shrink-0">
-                storefront
-              </span>
+              <Store className="w-5 h-5 text-slate-400 dark:text-white/40 group-hover:text-[#0038A8] dark:group-hover:text-[#4EED15] shrink-0" />
               <div className="flex-1 min-w-0">
                 <span className="block truncate">Portail Spectateurs</span>
                 <span className="text-[10px] text-slate-400/70 dark:text-white/30 font-normal">

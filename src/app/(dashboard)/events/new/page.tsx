@@ -50,7 +50,7 @@ export default function NewEventPage() {
   const [category, setCategory] = useState<EventCategory>('Football');
   const [venue, setVenue] = useState('');
   const [locationDetails, setLocationDetails] = useState('');
-  const [startDate, setStartDate] = useState('');
+  const [startDate, setStartDate] = useState('2026-11-20');
   const [timeString, setTimeString] = useState('18:00 UTC');
   const [bannerImage, setBannerImage] = useState(
     'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80'
@@ -291,7 +291,7 @@ export default function NewEventPage() {
                 Date de l'Événement *
               </label>
               <input
-                type="datetime-local"
+                type="date"
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}

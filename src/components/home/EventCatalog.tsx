@@ -78,7 +78,17 @@ export function EventCatalog() {
       </div>
 
       {/* Events Grid */}
-      {filteredEvents.length === 0 ? (
+      {events.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
+          <div className="w-16 h-16 rounded-3xl bg-primary/10 text-primary flex items-center justify-center mb-1">
+            <Calendar className="w-8 h-8" />
+          </div>
+          <h4 className="text-base font-extrabold text-on-surface">Aucun événement publié pour le moment</h4>
+          <p className="text-xs text-on-surface-variant max-w-md">
+            Les prochains rendez-vous (matchs, concerts, festivals, galas) apparaîtront ici dès leur mise en ligne par les organisateurs.
+          </p>
+        </div>
+      ) : filteredEvents.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
           <span className="material-symbols-outlined text-5xl text-on-surface-variant">search_off</span>
           <p className="text-on-surface-variant font-medium">Aucun événement trouvé pour cette recherche.</p>

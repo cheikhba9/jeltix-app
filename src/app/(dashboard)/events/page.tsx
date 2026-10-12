@@ -270,7 +270,21 @@ export default function EventsManagementPage() {
         <div className="w-full rounded-2xl border border-outline-variant/30 overflow-hidden">
           {/* Vue Mobile (Cartes) */}
           <div className="md:hidden divide-y divide-outline-variant/20 bg-surface-container-low">
-            {paginatedEvents.length === 0 ? (
+            {scopedEvents.length === 0 ? (
+              <div className="p-10 text-center space-y-3">
+                <p className="text-sm font-bold text-on-surface">Aucun événement n&apos;a encore été créé</p>
+                <p className="text-xs text-on-surface-variant max-w-sm mx-auto">
+                  Votre catalogue est actuellement vide. Publiez votre premier événement dès maintenant.
+                </p>
+                <Link
+                  href="/events/new"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold shadow-md hover:scale-[0.98] transition"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Créer mon premier événement</span>
+                </Link>
+              </div>
+            ) : paginatedEvents.length === 0 ? (
               <div className="p-8 text-center text-on-surface-variant text-xs">
                 Aucun événement trouvé pour ces critères de recherche.
               </div>
@@ -391,7 +405,23 @@ export default function EventsManagementPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant/20">
-                {paginatedEvents.length === 0 ? (
+                {scopedEvents.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-12 text-center space-y-3">
+                      <p className="text-sm font-bold text-on-surface">Aucun événement n&apos;a encore été créé</p>
+                      <p className="text-xs text-on-surface-variant max-w-sm mx-auto mb-4">
+                        Votre catalogue est actuellement vide. Publiez votre premier événement dès maintenant.
+                      </p>
+                      <Link
+                        href="/events/new"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold shadow-md hover:scale-[0.98] transition"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Créer mon premier événement</span>
+                      </Link>
+                    </td>
+                  </tr>
+                ) : paginatedEvents.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="p-8 text-center text-on-surface-variant text-xs">
                       Aucun événement trouvé pour ces critères de recherche.

@@ -97,9 +97,14 @@ export default function DashboardPage() {
     );
   }
 
-  const totalRevenue = kpis?.totalRevenue ?? 0;
-  const totalTicketsSold = kpis?.totalTicketsSold ?? 0;
-  const activeEventsCount = kpis?.activeEventsCount ?? 0;
+  // Calcul en direct depuis le store Mac si les KPIs distants sont à 0
+  const localActiveEvents = events.filter((e) => e.status === 'PUBLISHED').length;
+  const localTicketsSold = events.reduce((sum, e) => sum + (e.soldCapacity || 0), 0);
+  const localRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+  const totalRevenue = kpis?.totalRevenue || localRevenue;
+  const totalTicketsSold = kpis?.totalTicketsSold || localTicketsSold;
+  const activeEventsCount = kpis?.activeEventsCount || localActiveEvents;
   const successfulScansToday = kpis?.successfulScansToday ?? 0;
 
   // Dernières commandes (5 max)

@@ -122,7 +122,6 @@ function mapSupabaseTicketToModel(record: any): Ticket {
     seatNumber: record.seat_number || 'Placement Libre',
     customerName: record.customer_name,
     customerPhone: record.customer_phone,
-    customerEmail: record.customer_email || undefined,
     pricePaid: Number(record.price_paid) || 0,
     status: record.status || 'VALID',
     usedAt: record.used_at || undefined,
@@ -146,6 +145,17 @@ function mapSupabaseScanToModel(record: any): ScanLog {
     errorMessage: record.error_message || undefined,
     scannedAt: record.scanned_at || record.created_at || new Date().toISOString(),
   };
+}
+
+function mergeById<T extends { id: string }>(primary: T[], secondary: T[]): T[] {
+  const map = new Map<string, T>();
+  for (const item of secondary) {
+    if (item && item.id) map.set(item.id, item);
+  }
+  for (const item of primary) {
+    if (item && item.id) map.set(item.id, item);
+  }
+  return Array.from(map.values());
 }
 
 class JeltixStore {
@@ -294,7 +304,37 @@ class JeltixStore {
     if (typeof window === 'undefined' || this.isSyncing) return;
     this.isSyncing = true;
 
-    // 1. Essayer de charger depuis Supabase Cloud en direct
+    // 1. DISQUE MAC EN PRIORITÉ ABSOLUE (/api/local-db)
+    try {
+      const res = await fetch('/api/local-db');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.exists && json.data) {
+          if (Array.isArray(json.data.events) && json.data.events.length > 0) {
+            this.events = mergeById(this.events, json.data.events);
+          }
+          if (Array.isArray(json.data.tickets) && json.data.tickets.length > 0) {
+            this.tickets = mergeById(this.tickets, json.data.tickets);
+          }
+          if (Array.isArray(json.data.scans) && json.data.scans.length > 0) {
+            this.scans = mergeById(this.scans, json.data.scans);
+          }
+          if (Array.isArray(json.data.orders) && json.data.orders.length > 0) {
+            this.orders = mergeById(this.orders, json.data.orders);
+          }
+          if (Array.isArray(json.data.users) && json.data.users.length > 0) {
+            this.users = mergeById(this.users, json.data.users);
+          }
+
+          this.saveLocalOnly();
+          this.listeners.forEach((l) => l());
+        }
+      }
+    } catch (diskErr) {
+      console.warn('Notice sync local-db:', diskErr);
+    }
+
+    // 2. Synchronisation secondaire avec Supabase Cloud (sans JAMAIS écraser de données locales si distant est vide)
     try {
       const supabase = createClient();
       const { data: sbEvents, error: eventsErr } = await supabase
@@ -302,25 +342,28 @@ class JeltixStore {
         .select(`*, ticket_types (*)`)
         .order('start_date', { ascending: true });
 
-      if (!eventsErr && Array.isArray(sbEvents)) {
-        this.events = sbEvents.map(mapSupabaseEventToModel);
+      if (!eventsErr && Array.isArray(sbEvents) && sbEvents.length > 0) {
+        const remoteEvents = sbEvents.map(mapSupabaseEventToModel);
+        this.events = mergeById(this.events, remoteEvents);
 
         // Tickets
         const { data: sbTickets } = await supabase.from('tickets').select('*');
-        if (Array.isArray(sbTickets)) {
-          this.tickets = sbTickets.map(mapSupabaseTicketToModel);
+        if (Array.isArray(sbTickets) && sbTickets.length > 0) {
+          const remoteTickets = sbTickets.map(mapSupabaseTicketToModel);
+          this.tickets = mergeById(this.tickets, remoteTickets);
         }
 
         // Scans
         const { data: sbScans } = await supabase.from('scans').select('*').order('created_at', { ascending: false });
-        if (Array.isArray(sbScans)) {
-          this.scans = sbScans.map(mapSupabaseScanToModel);
+        if (Array.isArray(sbScans) && sbScans.length > 0) {
+          const remoteScans = sbScans.map(mapSupabaseScanToModel);
+          this.scans = mergeById(this.scans, remoteScans);
         }
 
         // Orders
         const { data: sbOrders } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-        if (Array.isArray(sbOrders)) {
-          this.orders = sbOrders.map((o: any) => ({
+        if (Array.isArray(sbOrders) && sbOrders.length > 0) {
+          const remoteOrders = sbOrders.map((o: any) => ({
             id: o.id,
             reference: o.reference,
             eventId: o.event_id,
@@ -336,35 +379,14 @@ class JeltixStore {
             channel: o.channel || 'ONLINE',
             createdAt: o.created_at || new Date().toISOString(),
           }));
+          this.orders = mergeById(this.orders, remoteOrders);
         }
 
         this.saveLocalOnly();
         this.listeners.forEach((l) => l());
-        this.isSyncing = false;
-        return;
       }
     } catch (sbErr) {
       console.warn('Note Supabase cloud (utilisation du stockage local Mac):', sbErr);
-    }
-
-    // 2. Fallback local Mac Disk (/api/local-db)
-    try {
-      const res = await fetch('/api/local-db');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.exists && json.data) {
-          if (Array.isArray(json.data.events)) this.events = json.data.events;
-          if (Array.isArray(json.data.tickets)) this.tickets = json.data.tickets;
-          if (Array.isArray(json.data.scans)) this.scans = json.data.scans;
-          if (Array.isArray(json.data.orders)) this.orders = json.data.orders;
-          if (Array.isArray(json.data.users) && json.data.users.length > 0) this.users = json.data.users;
-
-          this.saveLocalOnly();
-          this.listeners.forEach((l) => l());
-        }
-      }
-    } catch (diskErr) {
-      console.warn('Notice sync local-db:', diskErr);
     } finally {
       this.isSyncing = false;
     }
@@ -375,19 +397,29 @@ class JeltixStore {
     return this.syncFromSupabaseAndDisk();
   }
 
+  public async persistToDiskAsync(): Promise<boolean> {
+    if (typeof window === 'undefined') return false;
+    try {
+      const res = await fetch('/api/local-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          events: this.events,
+          tickets: this.tickets,
+          scans: this.scans,
+          users: this.users,
+          orders: this.orders,
+        }),
+      });
+      return res.ok;
+    } catch (err) {
+      console.warn('Erreur écriture disque local-db:', err);
+      return false;
+    }
+  }
+
   private persistToDisk() {
-    if (typeof window === 'undefined') return;
-    fetch('/api/local-db', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        events: this.events,
-        tickets: this.tickets,
-        scans: this.scans,
-        users: this.users,
-        orders: this.orders,
-      }),
-    }).catch(() => {});
+    this.persistToDiskAsync().catch(() => {});
   }
 
   private saveLocalOnly() {
@@ -766,8 +798,8 @@ class JeltixStore {
     };
   }
 
-  // CRÉATION D'UN NOUVEL ÉVÉNEMENT — LOCAL + PERSISTANCE DIRECTE SUPABASE
-  public createEvent(eventData: Omit<EventItem, 'id' | 'createdAt' | 'soldCapacity'>) {
+  // CRÉATION D'UN NOUVEL ÉVÉNEMENT — LOCAL + PERSISTANCE DISQUE MAC + SUPABASE EN FOND
+  public async createEvent(eventData: Omit<EventItem, 'id' | 'createdAt' | 'soldCapacity'>) {
     const newEvent: EventItem = {
       ...eventData,
       id: `evt-${Date.now()}`,
@@ -775,12 +807,24 @@ class JeltixStore {
       createdAt: new Date().toISOString(),
     };
     this.events.unshift(newEvent);
+    this.saveLocalOnly();
     this.save();
 
-    // Persister dans Supabase Cloud
+    // Attendre explicitement l'écriture sur le disque Mac pour garantir la persistance immédiate
+    await this.persistToDiskAsync();
+
+    // Persister dans Supabase Cloud en tâche de fond (sans bloquer le flow local)
     (async () => {
       try {
         const supabase = createClient();
+        const isUUID = (str?: string) =>
+          typeof str === 'string' &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+        const safeOrganizerId = isUUID(newEvent.organizerId)
+          ? newEvent.organizerId
+          : 'a0000000-0000-0000-0000-000000000001';
+
         const { data: eventRow, error: eventErr } = await supabase
           .from('events')
           .insert({
@@ -795,7 +839,7 @@ class JeltixStore {
             status: newEvent.status || 'PUBLISHED',
             total_capacity: newEvent.totalCapacity,
             sold_capacity: 0,
-            organizer_id: newEvent.organizerId || 'a0000000-0000-0000-0000-000000000001',
+            organizer_id: safeOrganizerId,
           })
           .select()
           .single();
@@ -829,6 +873,7 @@ class JeltixStore {
               }));
               newEvent.id = eventRow.id;
               this.save();
+              await this.persistToDiskAsync();
             }
           }
         } else if (eventErr) {
@@ -843,11 +888,12 @@ class JeltixStore {
   }
 
   // Mise à jour statut
-  public updateEventStatus(eventId: string, status: EventStatus) {
+  public async updateEventStatus(eventId: string, status: EventStatus) {
     const event = this.events.find((e) => e.id === eventId);
     if (event) {
       event.status = status;
       this.save();
+      await this.persistToDiskAsync();
       try {
         const supabase = createClient();
         supabase.from('events').update({ status }).eq('id', eventId).then(() => {});
@@ -856,9 +902,10 @@ class JeltixStore {
   }
 
   // Suppression événement
-  public deleteEvent(eventId: string) {
+  public async deleteEvent(eventId: string) {
     this.events = this.events.filter((e) => e.id !== eventId);
     this.save();
+    await this.persistToDiskAsync();
     try {
       const supabase = createClient();
       supabase.from('events').delete().eq('id', eventId).then(() => {});

@@ -131,9 +131,47 @@ export async function fetchPlatformKPIs(): Promise<PlatformKPIs> {
       .gte('scanned_at', todayStart.toISOString()),
   ]);
 
-  const orders = ordersRes.data ?? [];
-  const events = eventsRes.data ?? [];
-  const scans = scansRes.data ?? [];
+  let orders = ordersRes.data ?? [];
+  let events = eventsRes.data ?? [];
+  let scans = scansRes.data ?? [];
+
+  // Fallback local Mac Disk (/api/local-db) si Supabase est vide
+  if (events.length === 0 && typeof window !== 'undefined') {
+    try {
+      const localRes = await fetch('/api/local-db');
+      if (localRes.ok) {
+        const json = await localRes.json();
+        if (json.exists && json.data) {
+          if (Array.isArray(json.data.events) && json.data.events.length > 0) {
+            events = json.data.events.map((e: any) => ({
+              id: e.id,
+              title: e.title,
+              venue: e.venue,
+              sold_capacity: Number(e.soldCapacity) || 0,
+              status: e.status || 'PUBLISHED',
+            }));
+          }
+          if (Array.isArray(json.data.orders) && json.data.orders.length > 0) {
+            orders = json.data.orders.map((o: any) => ({
+              id: o.id,
+              event_id: o.eventId,
+              total_amount: Number(o.totalAmount) || 0,
+              payment_method: o.paymentMethod || 'WAVE',
+              created_at: o.createdAt || new Date().toISOString(),
+              payment_status: o.paymentStatus || 'COMPLETED',
+            }));
+          }
+          if (Array.isArray(json.data.scans) && json.data.scans.length > 0) {
+            scans = json.data.scans.map((s: any) => ({
+              id: s.id,
+              result: s.result || 'VALID',
+              scanned_at: s.scannedAt || new Date().toISOString(),
+            }));
+          }
+        }
+      }
+    } catch {}
+  }
 
   const { data: ticketCounts } = await supabase
     .from('tickets')

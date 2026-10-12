@@ -1,7 +1,83 @@
 {
-  "events": [],
-  "tickets": [],
-  "scans": [],
+  "events": [
+    {
+      "slug": "grand-concert-youssou-ndour-2026",
+      "title": "Grand Concert Youssou Ndour 2026",
+      "category": "Football",
+      "venue": "Esplanade Grand Theatre National",
+      "locationDetails": "Dakar, Senegal",
+      "startDate": "2026-11-20T00:00:00.000Z",
+      "timeString": "18:00 UTC",
+      "bannerImage": "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80",
+      "description": "Événement majeur organisé au Esplanade Grand Theatre National.",
+      "status": "PUBLISHED",
+      "totalCapacity": 25000,
+      "organizerId": "a0000000-0000-0000-0000-000000000001",
+      "organizerName": "Admin Jël Tix",
+      "ticketTypes": [
+        {
+          "id": "tt-1791826295832-0",
+          "eventId": "",
+          "name": "Billet Standard (Gradins)",
+          "price": 300,
+          "badge": "Populaire",
+          "description": "Accès aux gradins généraux. Placement libre.",
+          "totalQuantity": 20000,
+          "soldQuantity": 1,
+          "isActive": true
+        },
+        {
+          "id": "tt-1791826295832-1",
+          "eventId": "",
+          "name": "Billet Tribune Couverte",
+          "price": 500,
+          "badge": "VIP",
+          "description": "Accès tribune couverte avec assise numérotée.",
+          "totalQuantity": 5000,
+          "soldQuantity": 0,
+          "isActive": true
+        }
+      ],
+      "id": "evt-1791826295833",
+      "soldCapacity": 1,
+      "createdAt": "2026-10-12T17:31:35.833Z"
+    }
+  ],
+  "tickets": [
+    {
+      "id": "tkt-1791826443594-0-a76ovl",
+      "ticketCode": "JT-5251-S",
+      "orderId": "ord-1791826443594",
+      "eventId": "evt-1791826295833",
+      "eventTitle": "Grand Concert Youssou Ndour 2026",
+      "ticketTypeId": "tt-1791826295832-0",
+      "ticketTypeName": "Billet Standard (Gradins)",
+      "gateRecommendation": "Porte A - Entrée Principale",
+      "seatNumber": "Place 400",
+      "customerName": "Amadou Diallo",
+      "customerPhone": "771234567",
+      "pricePaid": 300,
+      "status": "USED",
+      "qrData": "JELTIX:JT-5251-S:evt-1791826295833:VALID",
+      "createdAt": "2026-10-12T17:34:03.594Z",
+      "usedAt": "2026-10-12T17:35:00.085Z",
+      "usedGate": "Porte A - Entrée Principale",
+      "usedByController": "Admin Jël Tix"
+    }
+  ],
+  "scans": [
+    {
+      "id": "scn-1791826500085",
+      "ticketId": "tkt-1791826443594-0-a76ovl",
+      "ticketCode": "JT-5251-S",
+      "eventId": "evt-1791826295833",
+      "ticketTypeName": "Billet Standard (Gradins)",
+      "gate": "Porte A - Entrée Principale",
+      "controllerName": "Admin Jël Tix",
+      "result": "VALID",
+      "scannedAt": "2026-10-12T17:35:00.085Z"
+    }
+  ],
   "users": [
     {
       "id": "a0000000-0000-0000-0000-000000000001",
@@ -44,5 +120,29 @@
       "createdAt": "2026-01-01T00:00:00Z"
     }
   ],
-  "orders": []
+  "orders": [
+    {
+      "id": "ord-1791826443594",
+      "reference": "CMD-JT-2026-1699",
+      "eventId": "evt-1791826295833",
+      "eventTitle": "Grand Concert Youssou Ndour 2026",
+      "customerName": "Amadou Diallo",
+      "customerPhone": "771234567",
+      "customerEmail": "",
+      "items": [
+        {
+          "ticketTypeId": "tt-1791826295832-0",
+          "ticketTypeName": "Billet Standard (Gradins)",
+          "quantity": 1,
+          "unitPrice": 300,
+          "subtotal": 300
+        }
+      ],
+      "totalAmount": 300,
+      "paymentMethod": "WAVE",
+      "paymentStatus": "COMPLETED",
+      "channel": "ONLINE",
+      "createdAt": "2026-10-12T17:34:03.594Z"
+    }
+  ]
 }

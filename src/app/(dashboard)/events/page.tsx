@@ -65,7 +65,7 @@ export default function EventsManagementPage() {
     if (!currentUser || currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SELLER') {
       return events;
     }
-    return events.filter((evt) => evt.organizerId === currentUser.id);
+    return events.filter((evt) => !evt.organizerId || evt.organizerId === currentUser.id);
   }, [events, currentUser]);
 
   const filteredEvents = useMemo(() => {

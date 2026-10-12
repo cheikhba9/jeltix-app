@@ -19,10 +19,12 @@ import {
   AlertCircle,
   Lock,
 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
 import type { EventCategory } from '@/types';
 
 export default function NewEventPage() {
   const router = useRouter();
+  const { addToast } = useToast();
   const { currentUser, createEvent } = useJeltixStore();
 
   // Seuls Super Admin et Organisateurs peuvent créer un événement
@@ -178,18 +180,29 @@ export default function NewEventPage() {
     };
 
     // Persist in 100% local store on Mac & notify all views
-    createEvent({
-      ...eventPayload,
-      ticketTypes: ticketTypes.map((tt, idx) => ({
-        ...tt,
-        id: `tt-${Date.now()}-${idx}`,
-        price: Number(tt.price),
-        totalQuantity: Number(tt.totalQuantity),
-      })),
-    });
+    try {
+      await createEvent({
+        ...eventPayload,
+        ticketTypes: ticketTypes.map((tt, idx) => ({
+          ...tt,
+          id: `tt-${Date.now()}-${idx}`,
+          price: Number(tt.price),
+          totalQuantity: Number(tt.totalQuantity),
+        })),
+      });
 
-    setIsSubmitting(false);
-    router.push('/events');
+      addToast({
+        type: 'success',
+        title: chosenStatus === 'PUBLISHED' ? 'Événement publié !' : 'Brouillon enregistré',
+        message: `"${title}" est maintenant disponible sur Jël Tix.`,
+      });
+
+      setIsSubmitting(false);
+      router.push('/events');
+    } catch (err: any) {
+      setIsSubmitting(false);
+      setErrorMessage(err.message || "Erreur lors de la création de l'événement.");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

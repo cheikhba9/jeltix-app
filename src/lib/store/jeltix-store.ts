@@ -568,75 +568,20 @@ class JeltixStore {
     this.tickets.unshift(...newTickets);
     this.save();
 
-    // Persistance asynchrone dans Supabase Cloud
+    // Persistance asynchrone via /api/local-db (Admin Supabase & Disque Mac)
     (async () => {
       try {
-        const supabase = createClient();
-        const { data: orderRow, error: orderErr } = await supabase
-          .from('orders')
-          .insert({
-            reference: order.reference,
-            event_id: order.eventId,
-            customer_name: order.customerName,
-            customer_phone: order.customerPhone,
-            customer_email: order.customerEmail || null,
-            total_amount: order.totalAmount,
-            payment_method: order.paymentMethod,
-            payment_status: 'COMPLETED',
-            seller_id: order.sellerId || null,
-            channel: order.channel || 'ONLINE',
-          })
-          .select()
-          .single();
-
-        if (orderRow) {
-          await supabase.from('tickets').insert(
-            newTickets.map((t) => ({
-              ticket_code: t.ticketCode,
-              order_id: orderRow.id,
-              event_id: t.eventId,
-              ticket_type_id: t.ticketTypeId,
-              customer_name: t.customerName,
-              customer_phone: t.customerPhone,
-              price_paid: t.pricePaid,
-              status: 'VALID',
-              gate_recommendation: t.gateRecommendation,
-              seat_number: t.seatNumber,
-              qr_data: t.qrData,
-            }))
-          );
-
-          // Synchroniser les jauges dans Supabase
-          for (const item of params.items) {
-            const { data: ttRow } = await supabase
-              .from('ticket_types')
-              .select('sold_quantity')
-              .eq('id', item.ticketTypeId)
-              .single();
-            if (ttRow) {
-              await supabase
-                .from('ticket_types')
-                .update({ sold_quantity: (ttRow.sold_quantity || 0) + item.quantity })
-                .eq('id', item.ticketTypeId);
-            }
-          }
-
-          const { data: evRow } = await supabase
-            .from('events')
-            .select('sold_capacity')
-            .eq('id', event.id)
-            .single();
-          if (evRow) {
-            await supabase
-              .from('events')
-              .update({ sold_capacity: (evRow.sold_capacity || 0) + newTickets.length })
-              .eq('id', event.id);
-          }
-        } else if (orderErr) {
-          console.warn('Note Supabase orders insert:', orderErr.message);
-        }
-      } catch (sbErr) {
-        console.warn('Notice Supabase purchase sync:', sbErr);
+        await fetch('/api/local-db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'PURCHASE',
+            order,
+            tickets: newTickets,
+          }),
+        });
+      } catch (err) {
+        console.warn('Notice synchronisation achat:', err);
       }
     })();
 
@@ -681,18 +626,17 @@ class JeltixStore {
       this.scans.unshift(scanLog);
       this.save();
 
-      // Journaliser le faux scan dans Supabase
-      (async () => {
-        try {
-          const supabase = createClient();
-          await supabase.from('scans').insert({
-            ticket_code: cleanCode,
-            gate,
-            result: 'INVALID',
-            error_message: 'Faux billet ou code inconnu',
-          });
-        } catch {}
-      })();
+      // Journaliser le faux scan via /api/local-db
+      fetch('/api/local-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'VALIDATE_SCAN',
+          ticketCode: cleanCode,
+          gate,
+          controllerName,
+        }),
+      }).catch(() => {});
 
       return {
         success: false,
@@ -720,20 +664,17 @@ class JeltixStore {
       this.scans.unshift(scanLog);
       this.save();
 
-      // Journaliser l'alerte double scan dans Supabase
-      (async () => {
-        try {
-          const supabase = createClient();
-          await supabase.from('scans').insert({
-            ticket_id: ticket.id,
-            ticket_code: ticket.ticketCode,
-            event_id: ticket.eventId,
-            gate,
-            result: 'ALREADY_SCANNED',
-            error_message: `Double passage détecté à ${gate}`,
-          });
-        } catch {}
-      })();
+      // Journaliser l'alerte double scan via /api/local-db
+      fetch('/api/local-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'VALIDATE_SCAN',
+          ticketCode: cleanCode,
+          gate,
+          controllerName,
+        }),
+      }).catch(() => {});
 
       return {
         success: false,
@@ -766,29 +707,17 @@ class JeltixStore {
     this.scans.unshift(scanLog);
     this.save();
 
-    // Mettre à jour dans Supabase
-    (async () => {
-      try {
-        const supabase = createClient();
-        await supabase
-          .from('tickets')
-          .update({
-            status: 'USED',
-            used_at: ticket.usedAt,
-            used_gate: gate,
-            used_by_controller: controllerName,
-          })
-          .eq('ticket_code', ticket.ticketCode);
-
-        await supabase.from('scans').insert({
-          ticket_id: ticket.id,
-          ticket_code: ticket.ticketCode,
-          event_id: ticket.eventId,
-          gate,
-          result: 'VALID',
-        });
-      } catch {}
-    })();
+    // Mettre à jour dans Supabase Cloud via /api/local-db
+    fetch('/api/local-db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'VALIDATE_SCAN',
+        ticketCode: cleanCode,
+        gate,
+        controllerName,
+      }),
+    }).catch(() => {});
 
     return {
       success: true,
@@ -813,76 +742,30 @@ class JeltixStore {
     // Attendre explicitement l'écriture sur le disque Mac pour garantir la persistance immédiate
     await this.persistToDiskAsync();
 
-    // Persister dans Supabase Cloud en tâche de fond (sans bloquer le flow local)
-    (async () => {
-      try {
-        const supabase = createClient();
-        const isUUID = (str?: string) =>
-          typeof str === 'string' &&
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-
-        const safeOrganizerId = isUUID(newEvent.organizerId)
-          ? newEvent.organizerId
-          : 'a0000000-0000-0000-0000-000000000001';
-
-        const { data: eventRow, error: eventErr } = await supabase
-          .from('events')
-          .insert({
-            slug: newEvent.slug,
-            title: newEvent.title,
-            category: newEvent.category,
-            venue: newEvent.venue,
-            location_details: newEvent.locationDetails,
-            start_date: newEvent.startDate,
-            banner_image: newEvent.bannerImage,
-            description: newEvent.description,
-            status: newEvent.status || 'PUBLISHED',
-            total_capacity: newEvent.totalCapacity,
-            sold_capacity: 0,
-            organizer_id: safeOrganizerId,
-          })
-          .select()
-          .single();
-
-        if (eventRow) {
-          // Si Supabase a généré un UUID officiel, associer les types de billets
-          if (newEvent.ticketTypes && newEvent.ticketTypes.length > 0) {
-            const ttInserts = newEvent.ticketTypes.map((tt) => ({
-              event_id: eventRow.id,
-              name: tt.name,
-              price: tt.price,
-              badge: tt.badge || null,
-              description: tt.description || '',
-              total_quantity: tt.totalQuantity,
-              sold_quantity: 0,
-              is_active: tt.isActive !== false,
-            }));
-
-            const { data: ttRows } = await supabase.from('ticket_types').insert(ttInserts).select();
-            if (ttRows) {
-              newEvent.ticketTypes = ttRows.map((tt: any) => ({
-                id: tt.id,
-                eventId: tt.event_id,
-                name: tt.name,
-                price: Number(tt.price),
-                badge: tt.badge || '',
-                description: tt.description || '',
-                totalQuantity: Number(tt.total_quantity),
-                soldQuantity: Number(tt.sold_quantity) || 0,
-                isActive: tt.is_active !== false,
-              }));
-              newEvent.id = eventRow.id;
-              this.save();
-              await this.persistToDiskAsync();
-            }
+    // Créer immédiatement dans Supabase Cloud via l'API sécurisée
+    try {
+      const res = await fetch('/api/local-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'CREATE_EVENT',
+          event: newEvent,
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.event && json.event.id) {
+          newEvent.id = json.event.id;
+          if (json.event.ticketTypes) {
+            newEvent.ticketTypes = json.event.ticketTypes;
           }
-        } else if (eventErr) {
-          console.warn('Note insertion Supabase events:', eventErr.message);
+          this.saveLocalOnly();
+          this.save();
         }
-      } catch (err) {
-        console.warn('Notice Supabase createEvent:', err);
       }
-    })();
+    } catch (err) {
+      console.warn('Notice createEvent cloud sync:', err);
+    }
 
     return newEvent;
   }
@@ -895,8 +778,15 @@ class JeltixStore {
       this.save();
       await this.persistToDiskAsync();
       try {
-        const supabase = createClient();
-        supabase.from('events').update({ status }).eq('id', eventId).then(() => {});
+        fetch('/api/local-db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'UPDATE_EVENT_STATUS',
+            eventId,
+            status,
+          }),
+        }).catch(() => {});
       } catch {}
     }
   }
@@ -907,8 +797,14 @@ class JeltixStore {
     this.save();
     await this.persistToDiskAsync();
     try {
-      const supabase = createClient();
-      supabase.from('events').delete().eq('id', eventId).then(() => {});
+      fetch('/api/local-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'DELETE_EVENT',
+          eventId,
+        }),
+      }).catch(() => {});
     } catch {}
   }
 

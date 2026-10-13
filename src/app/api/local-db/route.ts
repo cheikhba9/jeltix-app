@@ -1,47 +1,179 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import {
+  fetchFullDatabaseFromSupabase,
+  saveEventToSupabase,
+  saveOrderAndTicketsToSupabase,
+  validateScanInSupabase,
+} from '@/lib/supabase/admin';
 
 const DB_FILE = path.join(process.cwd(), 'data', 'local-db.json');
 
-function ensureDbFile() {
-  const dir = path.dirname(DB_FILE);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+function ensureDbDir() {
+  try {
+    const dir = path.dirname(DB_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch {}
+}
+
+function writeDiskSafely(data: any): boolean {
+  try {
+    ensureDbDir();
+    const tempFile = `${DB_FILE}.tmp.${Date.now()}`;
+    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tempFile, DB_FILE);
+    return true;
+  } catch (err) {
+    // Sur Vercel (read-only filesystem EROFS), on ignore silencieusement l'écriture disque
+    return false;
+  }
+}
+
+function readDiskSafely(): any | null {
+  try {
+    if (!fs.existsSync(DB_FILE)) return null;
+    const content = fs.readFileSync(DB_FILE, 'utf-8');
+    if (!content || !content.trim()) return null;
+    return JSON.parse(content);
+  } catch {
+    return null;
   }
 }
 
 export async function GET() {
   try {
-    ensureDbFile();
-    if (!fs.existsSync(DB_FILE)) {
-      return NextResponse.json({ exists: false, data: null });
+    // 1. Tenter la lecture depuis Supabase Cloud (Données réelles et partagées)
+    const cloudData = await fetchFullDatabaseFromSupabase();
+    const diskData = readDiskSafely();
+
+    if (cloudData && cloudData.events && cloudData.events.length > 0) {
+      // Si nous avons des données Supabase, nous les fusionnons avec le disque local
+      const mergedEvents = [...cloudData.events];
+      const mergedTickets = [...(cloudData.tickets || [])];
+      const mergedOrders = [...(cloudData.orders || [])];
+      const mergedScans = [...(cloudData.scans || [])];
+      const mergedUsers = [...(cloudData.users || [])];
+
+      // Mettre en cache sur le disque si l'environnement le permet
+      writeDiskSafely({
+        events: mergedEvents,
+        tickets: mergedTickets,
+        orders: mergedOrders,
+        scans: mergedScans,
+        users: mergedUsers,
+      });
+
+      return NextResponse.json({
+        exists: true,
+        source: 'supabase_cloud',
+        data: {
+          events: mergedEvents,
+          tickets: mergedTickets,
+          orders: mergedOrders,
+          scans: mergedScans,
+          users: mergedUsers,
+        },
+      });
     }
-    const content = fs.readFileSync(DB_FILE, 'utf-8');
-    if (!content || !content.trim()) {
-      return NextResponse.json({ exists: false, data: null });
+
+    // 2. Si Supabase est vide ou injoignable, se replier sur le disque local
+    if (diskData) {
+      return NextResponse.json({
+        exists: true,
+        source: 'local_disk',
+        data: diskData,
+      });
     }
-    const data = JSON.parse(content);
-    return NextResponse.json({ exists: true, data });
+
+    return NextResponse.json({ exists: false, data: null });
   } catch (err: any) {
-    console.error('Erreur lecture local-db:', err);
+    console.error('Erreur GET local-db:', err);
+    const diskData = readDiskSafely();
+    if (diskData) {
+      return NextResponse.json({ exists: true, source: 'fallback_disk', data: diskData });
+    }
     return NextResponse.json({ exists: false, error: err.message }, { status: 200 });
   }
 }
 
 export async function POST(req: Request) {
   try {
-    ensureDbFile();
     const body = await req.json();
-    
-    // Écriture atomique avec fichier temporaire pour éviter toute corruption
-    const tempFile = `${DB_FILE}.tmp.${Date.now()}`;
-    fs.writeFileSync(tempFile, JSON.stringify(body, null, 2), 'utf-8');
-    fs.renameSync(tempFile, DB_FILE);
+
+    // Cas 1 : Création atomique d'événement
+    if (body.action === 'CREATE_EVENT' && body.event) {
+      const createdEvent = await saveEventToSupabase(body.event);
+      const currentDisk = readDiskSafely() || { events: [], tickets: [], orders: [], scans: [], users: [] };
+      if (createdEvent) {
+        currentDisk.events = [createdEvent, ...currentDisk.events.filter((e: any) => e.slug !== createdEvent.slug)];
+        writeDiskSafely(currentDisk);
+        return NextResponse.json({ success: true, event: createdEvent });
+      }
+    }
+
+    // Cas 2 : Achat de billets (Commande + Tickets)
+    if (body.action === 'PURCHASE' && body.order && body.tickets) {
+      const res = await saveOrderAndTicketsToSupabase(body.order, body.tickets);
+      const currentDisk = readDiskSafely() || { events: [], tickets: [], orders: [], scans: [], users: [] };
+      currentDisk.orders = [body.order, ...(currentDisk.orders || [])];
+      currentDisk.tickets = [...body.tickets, ...(currentDisk.tickets || [])];
+      writeDiskSafely(currentDisk);
+      return NextResponse.json({ success: res.success });
+    }
+
+    // Cas 3 : Validation du scan de billet
+    if (body.action === 'VALIDATE_SCAN') {
+      const scanResult = await validateScanInSupabase({
+        ticketCode: body.ticketCode,
+        gate: body.gate,
+        controllerName: body.controllerName,
+        controllerId: body.controllerId,
+      });
+      return NextResponse.json(scanResult);
+    }
+
+    // Cas 4 : Mise à jour de statut d'événement
+    if (body.action === 'UPDATE_EVENT_STATUS' && body.eventId && body.status) {
+      const supabase = getSupabaseAdmin();
+      if (supabase) {
+        if (isUUID(body.eventId)) {
+          await supabase.from('events').update({ status: body.status }).eq('id', body.eventId);
+        } else {
+          await supabase.from('events').update({ status: body.status }).eq('slug', body.eventId);
+        }
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    // Cas 5 : Suppression d'événement
+    if (body.action === 'DELETE_EVENT' && body.eventId) {
+      const supabase = getSupabaseAdmin();
+      if (supabase) {
+        if (isUUID(body.eventId)) {
+          await supabase.from('events').delete().eq('id', body.eventId);
+        } else {
+          await supabase.from('events').delete().eq('slug', body.eventId);
+        }
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    // Cas 4 : Synchronisation complète du store
+    writeDiskSafely(body);
+
+    // Synchronisation en tâche de fond vers Supabase
+    if (Array.isArray(body.events)) {
+      for (const ev of body.events) {
+        saveEventToSupabase(ev).catch(() => {});
+      }
+    }
 
     return NextResponse.json({ success: true, savedAt: new Date().toISOString() });
   } catch (err: any) {
-    console.error('Erreur écriture local-db:', err);
+    console.error('Erreur POST local-db:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

@@ -314,7 +314,7 @@ export default function PwaScannerPage() {
   };
 
   // Process a scanned or typed ticket code
-  const handleProcessCode = (rawInput: string) => {
+  const handleProcessCode = async (rawInput: string) => {
     if (!rawInput.trim()) return;
 
     // Rate Limiting Protection (Max 40 scans per minute per controller)
@@ -329,7 +329,35 @@ export default function PwaScannerPage() {
     }
 
     const cleanCode = extractTicketCode(rawInput);
-    const result = validateScanAtomic(cleanCode, selectedGate, controllerName);
+    let result: any = null;
+
+    // 1. Validation en temps réel sur Supabase Cloud (Source de vérité partagée multi-contrôleurs)
+    try {
+      const res = await fetch('/api/local-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'VALIDATE_SCAN',
+          ticketCode: cleanCode,
+          gate: selectedGate,
+          controllerName,
+          controllerId: currentUser?.id,
+        }),
+      });
+      if (res.ok) {
+        const cloudRes = await res.json();
+        if (cloudRes && cloudRes.result) {
+          result = cloudRes;
+        }
+      }
+    } catch (cloudErr) {
+      console.warn('Mode hors-ligne: validation sur le registre local:', cloudErr);
+    }
+
+    // 2. Si le cloud est inaccessible (hors-ligne), validation instantanée sur le registre local
+    if (!result) {
+      result = validateScanAtomic(cleanCode, selectedGate, controllerName);
+    }
 
     // Haptic feedback (vibration on mobile)
     if (typeof navigator !== 'undefined' && navigator.vibrate) {

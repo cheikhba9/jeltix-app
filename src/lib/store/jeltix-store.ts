@@ -334,13 +334,17 @@ class JeltixStore {
       console.warn('Notice sync local-db:', diskErr);
     }
 
-    // 2. Synchronisation secondaire avec Supabase Cloud (sans JAMAIS écraser de données locales si distant est vide)
+    // 2. Synchronisation secondaire avec Supabase Cloud (protégée par timeout 1.5s anti-latence)
     try {
       const supabase = createClient();
-      const { data: sbEvents, error: eventsErr } = await supabase
+      const fetchPromise = supabase
         .from('events')
         .select(`*, ticket_types (*)`)
         .order('start_date', { ascending: true });
+      const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
+        setTimeout(() => resolve({ data: null, error: new Error('Timeout') }), 1500)
+      );
+      const { data: sbEvents, error: eventsErr } = await Promise.race([fetchPromise, timeoutPromise]);
 
       if (!eventsErr && Array.isArray(sbEvents) && sbEvents.length > 0) {
         const remoteEvents = sbEvents.map(mapSupabaseEventToModel);

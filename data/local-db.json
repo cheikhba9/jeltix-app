@@ -1,6 +1,48 @@
 {
   "events": [
     {
+      "id": "evt-test-1791898711153",
+      "slug": "test-derby-dakar-1791898711153",
+      "title": "Grand Derby de Dakar : Jaraaf vs Jeanne d'Arc",
+      "category": "Football",
+      "venue": "Stade Demba Diop",
+      "locationDetails": "Dakar, Médina",
+      "startDate": "2026-12-10T17:00:00Z",
+      "timeString": "17:00 UTC",
+      "bannerImage": "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80",
+      "description": "Le match mythique du football sénégalais dans une ambiance survoltée.",
+      "status": "PUBLISHED",
+      "totalCapacity": 15000,
+      "soldCapacity": 0,
+      "organizerId": "usr-1",
+      "organizerName": "Ligue Sénégalaise de Football Professionnel",
+      "ticketTypes": [
+        {
+          "id": "tt-virage-1791898711153",
+          "eventId": "",
+          "name": "Gradins Virage",
+          "price": 2000,
+          "badge": "Populaire",
+          "description": "Virage supporter placement libre.",
+          "totalQuantity": 10000,
+          "soldQuantity": 0,
+          "isActive": true
+        },
+        {
+          "id": "tt-tribune-1791898711153",
+          "eventId": "",
+          "name": "Tribune Couverte",
+          "price": 5000,
+          "badge": "Confort",
+          "description": "Tribune officielle avec place assise numérotée.",
+          "totalQuantity": 5000,
+          "soldQuantity": 0,
+          "isActive": true
+        }
+      ],
+      "createdAt": "2026-10-13T13:38:31.153Z"
+    },
+    {
       "id": "evt-test-1791890242962",
       "slug": "test-derby-dakar-1791890242962",
       "title": "Grand Derby de Dakar : Jaraaf vs Jeanne d'Arc",

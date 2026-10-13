@@ -186,6 +186,7 @@ export async function saveEventToSupabase(eventData: Partial<EventItem>): Promis
   const supabase = getSupabaseAdmin();
   if (!supabase) return null;
 
+  try {
     let safeOrganizerId = isUUID(eventData.organizerId) ? eventData.organizerId : null;
     if (!safeOrganizerId) {
       safeOrganizerId = '19c71d17-a17e-48a4-a765-8992bcdbf11e'; // ID Super Admin Mamadou Cheikh Ba

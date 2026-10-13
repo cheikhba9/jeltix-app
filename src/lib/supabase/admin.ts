@@ -26,6 +26,15 @@ export function getSupabaseAdmin(): SupabaseClient | null {
   return adminClientInstance;
 }
 
+function withTimeout<T>(promise: PromiseLike<T>, ms = 1800): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout de ${ms}ms dépassé`)), ms)
+    ),
+  ]);
+}
+
 /**
  * Récupère l'intégralité des données réelles depuis Supabase Cloud en contournant le RLS.
  */
@@ -40,11 +49,14 @@ export async function fetchFullDatabaseFromSupabase(): Promise<{
   if (!supabase) return null;
 
   try {
-    // 1. Événements avec ticket_types
-    const { data: sbEvents, error: evErr } = await supabase
-      .from('events')
-      .select('*, ticket_types(*)')
-      .order('start_date', { ascending: true });
+    // 1. Événements avec ticket_types (protégé par timeout de 1.8s anti-blocage)
+    const { data: sbEvents, error: evErr } = await withTimeout(
+      supabase
+        .from('events')
+        .select('*, ticket_types(*)')
+        .order('start_date', { ascending: true }),
+      1800
+    );
 
     if (evErr) {
       console.warn('Erreur lecture events Supabase:', evErr.message);
@@ -211,11 +223,14 @@ export async function saveEventToSupabase(eventData: Partial<EventItem>): Promis
       payload.id = eventData.id;
     }
 
-    const { data: eventRow, error: evErr } = await supabase
-      .from('events')
-      .upsert(payload, { onConflict: 'slug' })
-      .select()
-      .single();
+    const { data: eventRow, error: evErr } = await withTimeout(
+      supabase
+        .from('events')
+        .upsert(payload, { onConflict: 'slug' })
+        .select()
+        .single(),
+      2000
+    );
 
     if (evErr) {
       console.error('Erreur upsert event Supabase:', evErr.message);
@@ -336,7 +351,9 @@ export async function saveOrderAndTicketsToSupabase(
         channel: order.channel || 'ONLINE',
       })
       .select()
-      .single();
+      .single(),
+      2000
+    );
 
     if (orderErr) {
       console.error('Erreur insert orders Supabase:', orderErr.message);
@@ -443,12 +460,15 @@ export async function validateScanInSupabase(params: {
   }
 
   try {
-    // 1. Chercher le billet
-    const { data: ticket, error: tktErr } = await supabase
-      .from('tickets')
-      .select('*, events(title), ticket_types(name)')
-      .or(`ticket_code.eq.${cleanCode},ticket_code.eq.${cleanCode.replace('JT-', 'FT-')},ticket_code.eq.${cleanCode.replace('FT-', 'JT-')}`)
-      .maybeSingle();
+    // 1. Chercher le billet (avec timeout de 2s)
+    const { data: ticket, error: tktErr } = await withTimeout(
+      supabase
+        .from('tickets')
+        .select('*, events(title), ticket_types(name)')
+        .or(`ticket_code.eq.${cleanCode},ticket_code.eq.${cleanCode.replace('JT-', 'FT-')},ticket_code.eq.${cleanCode.replace('FT-', 'JT-')}`)
+        .maybeSingle(),
+      2000
+    );
 
     if (tktErr || !ticket) {
       // Faux billet -> Journaliser

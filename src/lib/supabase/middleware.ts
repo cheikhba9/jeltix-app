@@ -62,7 +62,11 @@ export async function updateSession(request: NextRequest) {
       }
     );
 
-    const { data } = await supabase.auth.getUser();
+    const userPromise = supabase.auth.getUser();
+    const timeoutPromise = new Promise<{ data: { user: null } }>((resolve) =>
+      setTimeout(() => resolve({ data: { user: null } }), 1200)
+    );
+    const { data } = await Promise.race([userPromise, timeoutPromise]);
     if (data?.user) {
       return supabaseResponse;
     }

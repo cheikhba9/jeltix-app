@@ -21,6 +21,15 @@ export function isSuperAdminEmail(email: string): boolean {
   return SUPER_ADMIN_EMAILS.some((adm) => adm.toLowerCase() === clean);
 }
 
+function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout de ${ms}ms dépassé`)), ms)
+    ),
+  ]);
+}
+
 /**
  * Fetch or sync profile in Supabase profiles table
  */
@@ -41,12 +50,15 @@ export async function syncUserProfile(
     : requestedRole;
 
   try {
-    // 1. Check if profile already exists
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('email', cleanEmail)
-      .single();
+    // 1. Check if profile already exists (protégé par timeout 1.5s)
+    const { data: existingProfile } = await withTimeout(
+      supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', cleanEmail)
+        .single(),
+      1500
+    );
 
     if (existingProfile) {
       return {
@@ -60,18 +72,21 @@ export async function syncUserProfile(
       };
     }
 
-    // 2. Create new profile in Supabase
-    const { data: newProfile, error } = await supabase
-      .from('profiles')
-      .insert({
-        id,
-        email: cleanEmail,
-        full_name: fullName,
-        role: effectiveRole,
-        is_active: true,
-      })
-      .select()
-      .single();
+    // 2. Create new profile in Supabase (protégé par timeout 1.5s)
+    const { data: newProfile, error } = await withTimeout(
+      supabase
+        .from('profiles')
+        .insert({
+          id,
+          email: cleanEmail,
+          full_name: fullName,
+          role: effectiveRole,
+          is_active: true,
+        })
+        .select()
+        .single(),
+      1500
+    );
 
     if (!error && newProfile) {
       return {
@@ -84,7 +99,7 @@ export async function syncUserProfile(
       };
     }
   } catch (err) {
-    console.warn('Supabase profile sync fallback:', err);
+    console.warn('Supabase profile sync fallback (résilient instantané):', err);
   }
 
   // Fallback memory profile
@@ -117,10 +132,13 @@ export async function fetchAllProfilesAdmin(): Promise<UserProfile[]> {
 
   try {
     const supabase = createClient();
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data, error } = await withTimeout(
+      supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false }),
+      1500
+    );
 
     if (error || !data) {
       return [];

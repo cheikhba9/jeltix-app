@@ -26,16 +26,19 @@ import {
   MapPin,
   Clock,
   Sparkles,
+  Pencil,
 } from 'lucide-react';
+import { EditEventModal } from '@/components/events/EditEventModal';
 
 export default function EventsManagementPage() {
-  const { events, updateEventStatus, deleteEvent, currentUser } = useJeltixStore();
+  const { events, updateEventStatus, updateEvent, deleteEvent, currentUser } = useJeltixStore();
   const { addToast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const ITEMS_PER_PAGE = 8;
 
   // Accès restreint : Le contrôleur n'a accès qu'au scanner
@@ -113,16 +116,27 @@ export default function EventsManagementPage() {
     });
   };
 
-  const handleDelete = (eventId: string, title: string) => {
+  const handleDelete = async (eventId: string, title: string) => {
     if (confirm(`Êtes-vous sûr de vouloir supprimer l'événement "${title}" ? Cette action est irréversible.`)) {
-      deleteEvent(eventId);
+      await deleteEvent(eventId);
       addToast({
         type: 'info',
         title: 'Événement supprimé',
-        message: `L'événement "${title}" a été retiré.`,
+        message: `L'événement "${title}" a été définitivement supprimé.`,
       });
-      if (selectedEvent?.id === eventId) setSelectedEvent(null);
+      if (selectedEvent?.id === eventId || selectedEvent?.slug === eventId) setSelectedEvent(null);
     }
+  };
+
+  const handleSaveEdit = async (updatedData: Partial<Event>) => {
+    if (!editingEvent) return;
+    await updateEvent(editingEvent.id, updatedData);
+    addToast({
+      type: 'success',
+      title: 'Événement mis à jour !',
+      message: `L'événement "${updatedData.title || editingEvent.title}" a été modifié avec succès.`,
+    });
+    setEditingEvent(null);
   };
 
   const handleCopyPublicLink = (slug: string) => {
@@ -424,8 +438,17 @@ export default function EventsManagementPage() {
                         </Link>
                         {currentUser?.role !== 'SELLER' && (
                           <button
+                            onClick={() => setEditingEvent(evt)}
+                            className="p-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
+                            title="Modifier l'événement"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {currentUser?.role !== 'SELLER' && (
+                          <button
                             onClick={() => handleDelete(evt.id, evt.title)}
-                            className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors"
+                            className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors cursor-pointer"
                             title="Supprimer l'événement"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -619,6 +642,15 @@ export default function EventsManagementPage() {
                             </Link>
                             {currentUser?.role !== 'SELLER' && (
                               <button
+                                onClick={() => setEditingEvent(evt)}
+                                className="p-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
+                                title="Modifier l'événement"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {currentUser?.role !== 'SELLER' && (
+                              <button
                                 onClick={() => handleDelete(evt.id, evt.title)}
                                 className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors cursor-pointer"
                                 title="Supprimer l'événement"
@@ -772,6 +804,13 @@ export default function EventsManagementPage() {
           </div>
         </div>
       )}
+
+      {/* Modal d'édition d'événement */}
+      <EditEventModal
+        event={editingEvent}
+        onClose={() => setEditingEvent(null)}
+        onSave={handleSaveEdit}
+      />
     </div>
   );
 }

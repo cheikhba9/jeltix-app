@@ -308,6 +308,57 @@ export async function saveEventToSupabase(eventData: Partial<EventItem>): Promis
 }
 
 /**
+ * Supprime un événement et toutes ses dépendances (billets, scans, types de billets, commandes associées)
+ * en contournant les restrictions de clés étrangères.
+ */
+export async function deleteEventFromSupabase(eventIdOrSlug: string): Promise<{ success: boolean; error?: string }> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { success: false, error: 'Supabase non initialisé' };
+
+  try {
+    // 1. Trouver l'enregistrement de l'événement par ID UUID ou Slug
+    let eventRow: { id: string; slug: string } | null = null;
+    if (isUUID(eventIdOrSlug)) {
+      const { data } = await supabase.from('events').select('id, slug').eq('id', eventIdOrSlug).maybeSingle();
+      if (data) eventRow = data;
+    }
+    if (!eventRow) {
+      const { data } = await supabase.from('events').select('id, slug').eq('slug', eventIdOrSlug).maybeSingle();
+      if (data) eventRow = data;
+    }
+
+    if (!eventRow) {
+      console.warn(`Événement non trouvé dans Supabase pour suppression: ${eventIdOrSlug}`);
+      return { success: true }; // Si déjà supprimé, on considère l'opération réussie
+    }
+
+    const eventUuid = eventRow.id;
+
+    // 2. Suppression en cascade dans l'ordre strict des contraintes Foreign Key
+    // Scans
+    await supabase.from('scans').delete().eq('event_id', eventUuid);
+    // Tickets
+    await supabase.from('tickets').delete().eq('event_id', eventUuid);
+    // Orders
+    await supabase.from('orders').delete().eq('event_id', eventUuid);
+    // Ticket Types
+    await supabase.from('ticket_types').delete().eq('event_id', eventUuid);
+    // Events
+    const { error: delErr } = await supabase.from('events').delete().eq('id', eventUuid);
+
+    if (delErr) {
+      console.error('Erreur suppression événement Supabase:', delErr.message);
+      return { success: false, error: delErr.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Erreur deleteEventFromSupabase:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * Enregistre une commande et ses billets générés dans Supabase
  */
 export async function saveOrderAndTicketsToSupabase(

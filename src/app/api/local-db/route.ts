@@ -4,8 +4,11 @@ import path from 'path';
 import {
   fetchFullDatabaseFromSupabase,
   saveEventToSupabase,
+  deleteEventFromSupabase,
   saveOrderAndTicketsToSupabase,
   validateScanInSupabase,
+  getSupabaseAdmin,
+  isUUID,
 } from '@/lib/supabase/admin';
 
 const DB_FILE = path.join(process.cwd(), 'data', 'local-db.json');
@@ -191,15 +194,44 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    // Cas 5 : Suppression d'événement
-    if (body.action === 'DELETE_EVENT' && body.eventId) {
-      const supabase = getSupabaseAdmin();
-      if (supabase) {
-        if (isUUID(body.eventId)) {
-          await supabase.from('events').delete().eq('id', body.eventId);
-        } else {
-          await supabase.from('events').delete().eq('slug', body.eventId);
-        }
+    // Cas 5 : Suppression d'événement (avec nettoyage complet et suppression en cascade)
+    if (body.action === 'DELETE_EVENT' && (body.eventId || body.slug)) {
+      const targetIdentifier = body.slug || body.eventId;
+      const res = await deleteEventFromSupabase(targetIdentifier);
+
+      const currentDisk = readDiskSafely() || { events: [], tickets: [], orders: [], scans: [], users: [] };
+      currentDisk.events = (currentDisk.events || []).filter(
+        (e: any) => e.id !== body.eventId && e.slug !== body.slug && e.id !== targetIdentifier && e.slug !== targetIdentifier
+      );
+      currentDisk.tickets = (currentDisk.tickets || []).filter(
+        (t: any) => t.eventId !== body.eventId && t.eventId !== targetIdentifier
+      );
+      currentDisk.scans = (currentDisk.scans || []).filter(
+        (s: any) => s.eventId !== body.eventId && s.eventId !== targetIdentifier
+      );
+      currentDisk.orders = (currentDisk.orders || []).filter(
+        (o: any) => o.eventId !== body.eventId && o.eventId !== targetIdentifier
+      );
+      writeDiskSafely(currentDisk);
+
+      // Invalider immédiatement le cache mémoire serveur
+      serverMemoryCache = null;
+
+      return NextResponse.json({ success: res.success, error: res.error });
+    }
+
+    // Cas 6 : Modification d'événement
+    if (body.action === 'UPDATE_EVENT' && body.event) {
+      const updatedEvent = await saveEventToSupabase(body.event);
+      const currentDisk = readDiskSafely() || { events: [], tickets: [], orders: [], scans: [], users: [] };
+      if (updatedEvent) {
+        currentDisk.events = [
+          updatedEvent,
+          ...currentDisk.events.filter((e: any) => e.id !== updatedEvent.id && e.slug !== updatedEvent.slug),
+        ];
+        writeDiskSafely(currentDisk);
+        serverMemoryCache = null;
+        return NextResponse.json({ success: true, event: updatedEvent });
       }
       return NextResponse.json({ success: true });
     }

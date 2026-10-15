@@ -767,21 +767,68 @@ class JeltixStore {
     }
   }
 
-  // Suppression événement
-  public async deleteEvent(eventId: string) {
-    this.events = this.events.filter((e) => e.id !== eventId);
+  // Suppression événement avec suppression locale immédiate et cascade Supabase
+  public async deleteEvent(eventIdOrSlug: string) {
+    const target = this.events.find((e) => e.id === eventIdOrSlug || e.slug === eventIdOrSlug);
+    const idToDelete = target?.id || eventIdOrSlug;
+    const slugToDelete = target?.slug || eventIdOrSlug;
+
+    this.events = this.events.filter((e) => e.id !== idToDelete && e.slug !== slugToDelete);
     this.save();
     await this.persistToDiskAsync();
+    this.lastSyncTime = Date.now();
+
     try {
-      fetch('/api/local-db', {
+      await fetch('/api/local-db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'DELETE_EVENT',
-          eventId,
+          eventId: idToDelete,
+          slug: slugToDelete,
         }),
-      }).catch(() => {});
-    } catch {}
+      });
+    } catch (err) {
+      console.warn('Notice suppression événement backend:', err);
+    }
+  }
+
+  // Modification complète d'événement
+  public async updateEvent(eventIdOrSlug: string, updatedData: Partial<EventItem>) {
+    const index = this.events.findIndex((e) => e.id === eventIdOrSlug || e.slug === eventIdOrSlug);
+    if (index === -1) throw new Error('Événement introuvable');
+
+    const current = this.events[index];
+    const totalCap = updatedData.ticketTypes
+      ? updatedData.ticketTypes.reduce((sum, tt) => sum + (Number(tt.totalQuantity) || 0), 0)
+      : (updatedData.totalCapacity ?? current.totalCapacity);
+
+    const merged: EventItem = {
+      ...current,
+      ...updatedData,
+      totalCapacity: totalCap,
+      ticketTypes: updatedData.ticketTypes ?? current.ticketTypes,
+    };
+
+    this.events[index] = merged;
+    this.save();
+    await this.persistToDiskAsync();
+    this.lastSyncTime = Date.now();
+
+    try {
+      await fetch('/api/local-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'UPDATE_EVENT',
+          event: merged,
+        }),
+      });
+    } catch (err) {
+      console.warn('Notice modification événement backend:', err);
+    }
+
+    return merged;
   }
 
   // Ajout utilisateur
@@ -893,6 +940,8 @@ export function useJeltixStore() {
         jeltixStoreInstance.createEvent(data),
       updateEventStatus: (id: string, status: EventStatus) =>
         jeltixStoreInstance.updateEventStatus(id, status),
+      updateEvent: (id: string, data: Parameters<typeof jeltixStoreInstance.updateEvent>[1]) =>
+        jeltixStoreInstance.updateEvent(id, data),
       deleteEvent: (id: string) => jeltixStoreInstance.deleteEvent(id),
       addUser: (data: Parameters<typeof jeltixStoreInstance.addUser>[0]) =>
         jeltixStoreInstance.addUser(data),

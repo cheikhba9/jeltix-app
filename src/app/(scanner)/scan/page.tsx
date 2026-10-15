@@ -64,7 +64,7 @@ function extractTicketCode(raw: string): string {
 }
 
 export default function PwaScannerPage() {
-  const { validateScanAtomic, scans, currentUser } = useJeltixStore();
+  const { validateScanAtomic, recordScanEvent, scans, currentUser } = useJeltixStore();
   const { theme } = useTheme();
 
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
@@ -291,6 +291,23 @@ export default function PwaScannerPage() {
     };
   }, [startCamera, stopCamera]);
 
+  // Support direct test scan from URL param (?code=JT-XXXX-X)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const codeParam = urlParams.get('code');
+      if (codeParam) {
+        setManualCode(codeParam.toUpperCase());
+        try {
+          window.history.replaceState({}, '', '/scan');
+        } catch {}
+        setTimeout(() => {
+          handleProcessCode(codeParam);
+        }, 300);
+      }
+    }
+  }, []);
+
   // Toggle physical Torch / LED flash
   const toggleTorch = async () => {
     if (!streamRef.current) return;
@@ -346,7 +363,7 @@ export default function PwaScannerPage() {
       });
       if (res.ok) {
         const cloudRes = await res.json();
-        if (cloudRes && cloudRes.result) {
+        if (cloudRes && (cloudRes.result === 'VALID' || cloudRes.result === 'ALREADY_SCANNED')) {
           result = cloudRes;
         }
       }
@@ -354,9 +371,33 @@ export default function PwaScannerPage() {
       console.warn('Mode hors-ligne: validation sur le registre local:', cloudErr);
     }
 
-    // 2. Si le cloud est inaccessible (hors-ligne), validation instantanée sur le registre local
-    if (!result) {
-      result = validateScanAtomic(cleanCode, selectedGate, controllerName);
+    // 2. Si le cloud n'a pas validé ou s'il a renvoyé INVALID, vérifier sur le registre local
+    if (!result || result.result === 'INVALID') {
+      const localResult = validateScanAtomic(cleanCode, selectedGate, controllerName);
+      if (localResult.result === 'VALID' || localResult.result === 'ALREADY_SCANNED') {
+        result = localResult;
+      } else if (!result) {
+        result = localResult;
+      }
+    }
+
+    // 3. Enregistrer systématiquement le scan dans le store local pour les compteurs temps réel
+    if (result) {
+      recordScanEvent(
+        {
+          id: `scn-${Date.now()}`,
+          ticketId: result.ticket?.id || '',
+          ticketCode: cleanCode,
+          eventId: result.ticket?.eventId || '',
+          ticketTypeName: result.ticket?.ticketTypeName || result.ticket?.ticket_types?.name || 'Billet',
+          gate: selectedGate,
+          controllerName,
+          result: result.result,
+          errorMessage: result.result !== 'VALID' ? result.message : undefined,
+          scannedAt: new Date().toISOString(),
+        },
+        result.result === 'VALID' ? { ticketCode: cleanCode, status: 'USED' } : undefined
+      );
     }
 
     // Haptic feedback (vibration on mobile)
@@ -414,10 +455,11 @@ export default function PwaScannerPage() {
     isPausedRef.current = false;
   };
 
-  // Gate statistics
-  const gateScans = scans.filter((s) => s.gate === selectedGate);
-  const gateValidCount = gateScans.filter((s) => s.result === 'VALID').length;
-  const gateFraudCount = gateScans.filter((s) => s.result !== 'VALID').length;
+  // Gate statistics — Calculées en direct pour la session et la porte
+  const gateScans = scans.filter((s) => s.gate === selectedGate || !s.gate);
+  const totalScansCount = gateScans.length;
+  const validScansCount = gateScans.filter((s) => s.result === 'VALID').length;
+  const duplicateRejectedCount = gateScans.filter((s) => s.result !== 'VALID').length;
 
 
   const isDark = theme === 'dark';
@@ -559,7 +601,7 @@ export default function PwaScannerPage() {
           <div className="bg-white dark:bg-[#0B1936] p-2.5 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xs">
             <p className="text-[9px] uppercase font-mono text-slate-400">Total Scans</p>
             <p className="text-base font-black text-slate-800 dark:text-white mt-0.5">
-              {gateScans.length}
+              {totalScansCount}
             </p>
           </div>
           <div className="bg-white dark:bg-[#0B1936] p-2.5 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xs">
@@ -567,12 +609,12 @@ export default function PwaScannerPage() {
               Entrées Valides
             </p>
             <p className="text-base font-black text-[#2CA808] dark:text-[#4EED15] mt-0.5">
-              {gateValidCount}
+              {validScansCount}
             </p>
           </div>
           <div className="bg-white dark:bg-[#0B1936] p-2.5 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xs">
-            <p className="text-[9px] uppercase font-mono text-[#DC2626]">Doublons / Rejets</p>
-            <p className="text-base font-black text-[#DC2626] mt-0.5">{gateFraudCount}</p>
+            <p className="text-[9px] uppercase font-mono text-[#DC2626]">Doublons Rejetés</p>
+            <p className="text-base font-black text-[#DC2626] mt-0.5">{duplicateRejectedCount}</p>
           </div>
         </div>
       </div>

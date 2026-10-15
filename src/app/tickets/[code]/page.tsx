@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useJeltixStore } from '@/lib/store/jeltix-store';
 import { formatDateWithDay, formatFCFA } from '@/lib/utils/format';
@@ -13,6 +13,7 @@ const QRCodeSVG = dynamic(() => import('qrcode.react').then((m) => m.QRCodeSVG),
   loading: () => <div className="w-48 h-48 bg-slate-100 rounded-2xl animate-pulse mx-auto" />,
   ssr: false,
 });
+
 import {
   ArrowLeft,
   Printer,
@@ -29,6 +30,9 @@ import {
   Download,
   Wallet,
   Clock,
+  Layers,
+  ChevronRight,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function TicketViewPage({
@@ -37,11 +41,39 @@ export default function TicketViewPage({
   params: Promise<{ code: string }>;
 }) {
   const resolvedParams = use(params);
-  const { getTicketByCode, getEventBySlug } = useJeltixStore();
-  const ticket = getTicketByCode(resolvedParams.code);
-  const event = ticket ? getEventBySlug(ticket.eventId) : null;
+  const { getTicketByCode, getEventBySlug, tickets } = useJeltixStore();
+  
+  const [selectedCode, setSelectedCode] = useState(resolvedParams.code);
+  const [showAllQRCodes, setShowAllQRCodes] = useState(false);
   const [copied, setCopied] = useState(false);
   const [liveSeconds, setLiveSeconds] = useState(0);
+
+  // Synchronisation du code sélectionné si le paramètre change
+  useEffect(() => {
+    setSelectedCode(resolvedParams.code);
+  }, [resolvedParams.code]);
+
+  // Billet actif actuellement affiché
+  const ticket = useMemo(() => {
+    return getTicketByCode(selectedCode) || getTicketByCode(resolvedParams.code);
+  }, [selectedCode, resolvedParams.code, getTicketByCode, tickets]);
+
+  const event = ticket ? getEventBySlug(ticket.eventId) : null;
+
+  // Billets compagnons de la même commande (achats groupés de 2, 3, 5 billets, etc.)
+  const companionTickets = useMemo(() => {
+    if (!ticket) return [];
+    if (ticket.orderId) {
+      const sameOrder = tickets.filter((t) => t.orderId === ticket.orderId);
+      if (sameOrder.length > 0) return sameOrder;
+    }
+    if (ticket.customerPhone && ticket.eventId) {
+      return tickets.filter(
+        (t) => t.customerPhone === ticket.customerPhone && t.eventId === ticket.eventId
+      );
+    }
+    return [ticket];
+  }, [ticket, tickets]);
 
   // Live Anti-Screenshot dynamic timer ticking every second
   useEffect(() => {
@@ -53,12 +85,15 @@ export default function TicketViewPage({
 
   if (!ticket) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-background">
-        <h1 className="text-2xl font-black mb-2 text-on-surface">Billet introuvable</h1>
-        <p className="text-xs text-on-surface-variant mb-4 font-mono">
-          Le code "{resolvedParams.code}" n'existe pas dans le registre officiel Jël Tix.
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-[#050D1E] text-white">
+        <h1 className="text-2xl font-black mb-2 text-white">Billet introuvable</h1>
+        <p className="text-xs text-white/60 mb-4 font-mono">
+          Le code "{resolvedParams.code}" n'existe pas ou est en cours de synchronisation.
         </p>
-        <Link href="/" className="text-primary hover:underline text-sm font-bold">
+        <Link
+          href="/"
+          className="px-5 py-2.5 rounded-xl bg-[#0038A8] text-white font-bold text-xs hover:bg-[#002D8C] transition-colors"
+        >
           Retour à l'accueil Jël Tix
         </Link>
       </div>
@@ -140,6 +175,137 @@ export default function TicketViewPage({
             </button>
           </div>
         </div>
+
+        {/* ─── NOUVEAU : Sélecteur Multi-Billets si la commande contient plusieurs billets ─── */}
+        {companionTickets.length > 1 && (
+          <div className="w-full bg-[#0B1936] border border-white/15 rounded-2xl p-4 mb-6 shadow-xl">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#4EED15]" />
+                <span className="text-xs font-black uppercase tracking-wider text-white font-mono">
+                  Commande Groupée ({companionTickets.length} Billets avec QR Codes distincts)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllQRCodes(!showAllQRCodes)}
+                className="text-[11px] font-bold text-[#4EED15] hover:underline cursor-pointer"
+              >
+                {showAllQRCodes ? 'Masquer la vue globale' : 'Voir tous les QR Codes'}
+              </button>
+            </div>
+
+            {/* Onglets rapides pour basculer d'un billet à l'autre */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {companionTickets.map((t, idx) => {
+                const isSelected = t.ticketCode === ticket.ticketCode;
+                const isTktUsed = t.status === 'USED';
+                return (
+                  <button
+                    key={t.id || t.ticketCode}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCode(t.ticketCode);
+                      setShowAllQRCodes(false);
+                    }}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold font-mono shrink-0 flex items-center gap-2 transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#0038A8] text-white ring-2 ring-[#4EED15] shadow-md'
+                        : 'bg-white/5 hover:bg-white/10 text-white/80 border border-white/10'
+                    }`}
+                  >
+                    <span>
+                      Billet {idx + 1} ({t.ticketCode})
+                    </span>
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        isTktUsed ? 'bg-red-500' : 'bg-[#4EED15]'
+                      }`}
+                      title={isTktUsed ? 'Déjà scanné' : 'Actif'}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ─── VUE GLOBALE : TOUS LES QR CODES DE LA COMMANDE ─── */}
+        {showAllQRCodes && companionTickets.length > 1 && (
+          <div className="w-full bg-white text-slate-900 rounded-3xl p-6 mb-6 shadow-2xl border border-white/20 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-6">
+              <div>
+                <h3 className="text-base font-black text-slate-900 font-mono uppercase tracking-wider">
+                  Tous les QR Codes de la Commande
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Présentez chaque QR code individuellement aux tourniquets de contrôle.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllQRCodes(false)}
+                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {companionTickets.map((t, idx) => {
+                const isTktUsed = t.status === 'USED';
+                return (
+                  <div
+                    key={t.id || t.ticketCode}
+                    className={`p-4 rounded-2xl border flex flex-col items-center text-center gap-3 transition-all ${
+                      isTktUsed
+                        ? 'bg-red-50/50 border-red-200 opacity-80'
+                        : 'bg-slate-50 border-slate-200 hover:border-[#0038A8] shadow-xs'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-xs font-black text-[#0038A8] font-mono">
+                        Billet #{idx + 1}
+                      </span>
+                      <span
+                        className={`text-[10px] font-black px-2 py-0.5 rounded-full font-mono ${
+                          isTktUsed
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-emerald-100 text-emerald-800'
+                        }`}
+                      >
+                        {isTktUsed ? 'DÉJÀ SCANNÉ' : 'ACTIF'}
+                      </span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-inner">
+                      <QRCodeSVG value={t.ticketCode} size={135} level="H" includeMargin={false} />
+                    </div>
+
+                    <div>
+                      <p className="text-base font-black font-mono tracking-wider text-slate-900">
+                        {t.ticketCode}
+                      </p>
+                      <p className="text-xs font-bold text-slate-600">{t.ticketTypeName}</p>
+                      <p className="text-[10px] text-slate-400 font-mono">{t.gateRecommendation}</p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCode(t.ticketCode);
+                        setShowAllQRCodes(false);
+                      }}
+                      className="w-full py-1.5 rounded-lg bg-[#0038A8]/10 hover:bg-[#0038A8]/20 text-[#0038A8] text-xs font-bold cursor-pointer transition-colors"
+                    >
+                      Afficher ce billet en grand
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Cinematic Jël Tix E-Ticket Card */}
         <div className="w-full bg-white text-slate-900 rounded-3xl shadow-2xl overflow-hidden relative border border-white/20">
@@ -309,7 +475,7 @@ export default function TicketViewPage({
               Tester le contrôle de ce billet sur l'application agent :
             </p>
             <Link
-              href="/scan"
+              href={`/scan?code=${ticket.ticketCode}`}
               target="_blank"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0038A8] hover:bg-[#002D8C] text-white font-bold text-xs shadow-md transition-transform active:scale-95"
             >

@@ -461,44 +461,44 @@ export async function saveOrderAndTicketsToSupabase(
         })
         .select()
         .single(),
-      2000
+      8000
     );
 
+    const safeOrderId = orderRow?.id || null;
     if (orderErr) {
-      console.error('Erreur insert orders Supabase:', orderErr.message);
-      return { success: false };
+      console.warn('Notice insertion orders Supabase (insertion billets maintenue):', orderErr.message);
     }
 
-    // 2. Insérer les billets
+    // 2. Pré-charger les catégories de billets de l'événement en 1 seule requête
+    let eventTicketTypes: any[] = [];
+    if (targetEventId) {
+      const { data: ttList } = await supabase
+        .from('ticket_types')
+        .select('id, name')
+        .eq('event_id', targetEventId);
+      if (ttList) eventTicketTypes = ttList;
+    }
+
+    // 3. Insérer les billets
     const ticketInserts = [];
     for (const t of tickets) {
-      // Résoudre ticket_type_id
+      // Résoudre ticket_type_id depuis la liste pré-chargée
       let safeTtId = isUUID(t.ticketTypeId) ? t.ticketTypeId : null;
-      if (!safeTtId && targetEventId) {
+      if (!safeTtId && eventTicketTypes.length > 0) {
         if (t.ticketTypeName) {
-          const { data: ttByName } = await supabase
-            .from('ticket_types')
-            .select('id')
-            .eq('event_id', targetEventId)
-            .ilike('name', `%${t.ticketTypeName}%`)
-            .limit(1)
-            .maybeSingle();
-          if (ttByName) safeTtId = ttByName.id;
+          const match = eventTicketTypes.find((row) =>
+            row.name.trim().toLowerCase() === t.ticketTypeName.trim().toLowerCase()
+          );
+          if (match) safeTtId = match.id;
         }
         if (!safeTtId) {
-          const { data: tt } = await supabase
-            .from('ticket_types')
-            .select('id')
-            .eq('event_id', targetEventId)
-            .limit(1)
-            .maybeSingle();
-          safeTtId = tt?.id || null;
+          safeTtId = eventTicketTypes[0]?.id || null;
         }
       }
 
       ticketInserts.push({
-        ticket_code: t.ticketCode,
-        order_id: orderRow.id,
+        ticket_code: t.ticketCode.trim().toUpperCase(),
+        order_id: safeOrderId,
         event_id: targetEventId,
         ticket_type_id: safeTtId,
         customer_name: t.customerName,
@@ -516,7 +516,7 @@ export async function saveOrderAndTicketsToSupabase(
       if (tktErr) console.warn('Erreur insert tickets Supabase:', tktErr.message);
     }
 
-    // 3. Incrémenter sold_capacity
+    // 4. Incrémenter sold_capacity
     if (targetEventId) {
       const { data: evRow } = await supabase
         .from('events')
@@ -531,7 +531,7 @@ export async function saveOrderAndTicketsToSupabase(
       }
     }
 
-    return { success: true, orderId: orderRow.id };
+    return { success: true, orderId: safeOrderId || undefined };
   } catch (err: any) {
     console.error('Erreur saveOrderAndTicketsToSupabase:', err.message);
     return { success: false };
@@ -569,15 +569,29 @@ export async function validateScanInSupabase(params: {
   }
 
   try {
-    // 1. Chercher le billet (avec timeout de 2s)
-    const { data: ticket, error: tktErr } = await withTimeout(
+    // 1. Chercher le billet (avec timeout de 5s)
+    let ticket: any = null;
+    const { data: exactTicket, error: tktErr } = await withTimeout(
       supabase
         .from('tickets')
         .select('*, events(title), ticket_types(name)')
         .or(`ticket_code.eq.${cleanCode},ticket_code.eq.${cleanCode.replace('JT-', 'FT-')},ticket_code.eq.${cleanCode.replace('FT-', 'JT-')}`)
         .maybeSingle(),
-      2000
+      5000
     );
+
+    if (exactTicket) {
+      ticket = exactTicket;
+    } else {
+      // Recherche souple avec ilike si jamais la casse ou un préfixe varie
+      const { data: fuzzyTicket } = await supabase
+        .from('tickets')
+        .select('*, events(title), ticket_types(name)')
+        .ilike('ticket_code', `%${cleanCode}%`)
+        .limit(1)
+        .maybeSingle();
+      if (fuzzyTicket) ticket = fuzzyTicket;
+    }
 
     if (tktErr || !ticket) {
       // Faux billet -> Journaliser

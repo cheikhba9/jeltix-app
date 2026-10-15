@@ -166,6 +166,36 @@ function mergeById<T extends { id: string }>(primary: T[], secondary: T[]): T[] 
   return Array.from(map.values());
 }
 
+function mergeTickets(primary: Ticket[], secondary: Ticket[]): Ticket[] {
+  const map = new Map<string, Ticket>();
+  for (const item of secondary) {
+    if (!item) continue;
+    const key = (item.ticketCode || item.id || '').trim().toUpperCase();
+    if (key) map.set(key, item);
+  }
+  for (const item of primary) {
+    if (!item) continue;
+    const key = (item.ticketCode || item.id || '').trim().toUpperCase();
+    if (key) {
+      const existing = map.get(key);
+      if (existing) {
+        const isUsed = existing.status === 'USED' || item.status === 'USED';
+        map.set(key, {
+          ...existing,
+          ...item,
+          status: isUsed ? 'USED' : 'VALID',
+          usedAt: existing.usedAt || item.usedAt,
+          usedGate: existing.usedGate || item.usedGate,
+          usedByController: existing.usedByController || item.usedByController,
+        });
+      } else {
+        map.set(key, item);
+      }
+    }
+  }
+  return Array.from(map.values());
+}
+
 class JeltixStore {
   private events: EventItem[] = [];
   private tickets: Ticket[] = [];
@@ -330,7 +360,7 @@ class JeltixStore {
             this.events = mergeById(this.events, json.data.events);
           }
           if (Array.isArray(json.data.tickets) && json.data.tickets.length > 0) {
-            this.tickets = mergeById(this.tickets, json.data.tickets);
+            this.tickets = mergeTickets(this.tickets, json.data.tickets);
           }
           if (Array.isArray(json.data.scans) && json.data.scans.length > 0) {
             this.scans = mergeById(this.scans, json.data.scans);
@@ -522,7 +552,13 @@ class JeltixStore {
       event.soldCapacity += item.quantity;
 
       for (let i = 0; i < item.quantity; i++) {
-        const code = generateTicketCode();
+        let code = generateTicketCode();
+        while (
+          this.tickets.some((t) => t.ticketCode.toUpperCase() === code.toUpperCase()) ||
+          newTickets.some((t) => t.ticketCode.toUpperCase() === code.toUpperCase())
+        ) {
+          code = generateTicketCode();
+        }
         const tkt: Ticket = {
           id: `tkt-${Date.now()}-${i}-${Math.random().toString(36).substring(7)}`,
           ticketCode: code,
@@ -709,6 +745,35 @@ class JeltixStore {
       message: `Billet #${ticket.ticketCode} VALIDÉ • Entrée autorisée`,
       ticket,
     };
+  }
+
+  // ENREGISTREMENT INSTANTANÉ D'UN SCAN ET SYNCHRONISATION DU STATUT DU BILLET
+  public recordScanEvent(scanLog: ScanLog, updatedTicket?: Partial<Ticket>): void {
+    // 1. Ajouter le log de scan dans this.scans
+    this.scans = [scanLog, ...this.scans.filter((s) => s.id !== scanLog.id)];
+
+    // 2. Mettre à jour le statut du billet local
+    if (updatedTicket && updatedTicket.ticketCode) {
+      const cleanCode = updatedTicket.ticketCode.trim().toUpperCase();
+      const idx = this.tickets.findIndex((t) => {
+        const tc = t.ticketCode.trim().toUpperCase();
+        return (
+          tc === cleanCode ||
+          tc.replace('JT-', 'FT-') === cleanCode ||
+          tc.replace('FT-', 'JT-') === cleanCode
+        );
+      });
+      if (idx !== -1) {
+        this.tickets[idx] = {
+          ...this.tickets[idx],
+          ...updatedTicket,
+        };
+      }
+    }
+
+    this.saveLocalOnly();
+    this.save();
+    this.listeners.forEach((l) => l());
   }
 
   // CRÉATION D'UN NOUVEL ÉVÉNEMENT — LOCAL + PERSISTANCE DISQUE MAC + SUPABASE EN FOND
@@ -954,6 +1019,8 @@ export function useJeltixStore() {
         jeltixStoreInstance.purchaseTickets(params),
       validateScanAtomic: (code: string, gate?: string, controller?: string) =>
         jeltixStoreInstance.validateScanAtomic(code, gate, controller),
+      recordScanEvent: (scanLog: ScanLog, updatedTicket?: Partial<Ticket>) =>
+        jeltixStoreInstance.recordScanEvent(scanLog, updatedTicket),
       createEvent: (data: Parameters<typeof jeltixStoreInstance.createEvent>[0]) =>
         jeltixStoreInstance.createEvent(data),
       updateEventStatus: (id: string, status: EventStatus) =>

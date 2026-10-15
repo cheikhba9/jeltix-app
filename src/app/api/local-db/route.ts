@@ -172,12 +172,83 @@ export async function POST(req: Request) {
 
     // Cas 3 : Validation du scan de billet
     if (body.action === 'VALIDATE_SCAN') {
-      const scanResult = await validateScanInSupabase({
+      let scanResult = await validateScanInSupabase({
         ticketCode: body.ticketCode,
         gate: body.gate,
         controllerName: body.controllerName,
         controllerId: body.controllerId,
       });
+
+      // Si non trouvé dans Supabase ou erreur, chercher sur le disque local (au cas où l'achat n'a pas fini de s'insérer)
+      if (!scanResult || scanResult.result === 'INVALID') {
+        const currentDisk = readDiskSafely();
+        if (currentDisk && Array.isArray(currentDisk.tickets)) {
+          const cleanCode = (body.ticketCode || '').trim().toUpperCase();
+          const diskTicket = currentDisk.tickets.find((t: any) => {
+            const tc = (t.ticketCode || '').trim().toUpperCase();
+            return (
+              tc === cleanCode ||
+              tc.replace('JT-', 'FT-') === cleanCode ||
+              tc.replace('FT-', 'JT-') === cleanCode
+            );
+          });
+
+          if (diskTicket) {
+            const nowIso = new Date().toISOString();
+            if (diskTicket.status === 'USED') {
+              scanResult = {
+                success: false,
+                result: 'ALREADY_SCANNED',
+                message: `ALERTE : Billet #${diskTicket.ticketCode} DÉJÀ SCANNÉ !`,
+                ticket: diskTicket,
+                previousScanDate: diskTicket.usedAt || diskTicket.used_at,
+                previousScanGate: diskTicket.usedGate || diskTicket.used_gate,
+              };
+            } else {
+              diskTicket.status = 'USED';
+              diskTicket.usedAt = nowIso;
+              diskTicket.usedGate = body.gate || 'Porte A - Entrée Principale';
+              diskTicket.usedByController = body.controllerName || 'Agent Contrôle';
+
+              const scanLog = {
+                id: `scn-${Date.now()}`,
+                ticketId: diskTicket.id,
+                ticketCode: diskTicket.ticketCode,
+                eventId: diskTicket.eventId,
+                ticketTypeName: diskTicket.ticketTypeName,
+                gate: body.gate || 'Porte A - Entrée Principale',
+                controllerName: body.controllerName || 'Agent Contrôle',
+                result: 'VALID',
+                scannedAt: nowIso,
+              };
+              currentDisk.scans = [scanLog, ...(currentDisk.scans || [])];
+              writeDiskSafely(currentDisk);
+
+              // Tenter de marquer comme USED dans Supabase en arrière-plan
+              const supabase = getSupabaseAdmin();
+              if (supabase) {
+                supabase
+                  .from('tickets')
+                  .update({
+                    status: 'USED',
+                    used_at: nowIso,
+                    used_gate: body.gate,
+                  })
+                  .eq('ticket_code', diskTicket.ticketCode)
+                  .catch(() => {});
+              }
+
+              scanResult = {
+                success: true,
+                result: 'VALID',
+                message: `Billet #${diskTicket.ticketCode} VALIDÉ • Entrée autorisée`,
+                ticket: diskTicket,
+              };
+            }
+          }
+        }
+      }
+
       return NextResponse.json(scanResult);
     }
 

@@ -66,17 +66,25 @@ const INITIAL_USERS: UserProfile[] = [
 ];
 
 function mapSupabaseEventToModel(record: any): EventItem {
-  const ticketTypes = (record.ticket_types || []).map((tt: any) => ({
-    id: tt.id,
-    eventId: tt.event_id,
-    name: tt.name,
-    price: Number(tt.price) || 0,
-    badge: tt.badge || '',
-    description: tt.description || '',
-    totalQuantity: Number(tt.total_quantity) || 0,
-    soldQuantity: Number(tt.sold_quantity) || 0,
-    isActive: tt.is_active !== false,
-  }));
+  const seenTypes = new Set<string>();
+  const ticketTypes: TicketType[] = [];
+
+  for (const tt of record.ticket_types || []) {
+    const key = (tt.name || '').trim().toLowerCase();
+    if (!key || seenTypes.has(key)) continue;
+    seenTypes.add(key);
+    ticketTypes.push({
+      id: tt.id,
+      eventId: tt.event_id || record.id,
+      name: tt.name,
+      price: Number(tt.price) || 0,
+      badge: tt.badge || '',
+      description: tt.description || '',
+      totalQuantity: Number(tt.total_quantity) || 0,
+      soldQuantity: Number(tt.sold_quantity) || 0,
+      isActive: tt.is_active !== false,
+    });
+  }
 
   return {
     id: record.id,
@@ -799,15 +807,25 @@ class JeltixStore {
     if (index === -1) throw new Error('Événement introuvable');
 
     const current = this.events[index];
-    const totalCap = updatedData.ticketTypes
-      ? updatedData.ticketTypes.reduce((sum, tt) => sum + (Number(tt.totalQuantity) || 0), 0)
+    const seenTypes = new Set<string>();
+    const sanitizedTicketTypes = updatedData.ticketTypes
+      ? updatedData.ticketTypes.filter((tt) => {
+          const key = (tt.name || '').trim().toLowerCase();
+          if (!key || seenTypes.has(key)) return false;
+          seenTypes.add(key);
+          return true;
+        })
+      : current.ticketTypes;
+
+    const totalCap = sanitizedTicketTypes
+      ? sanitizedTicketTypes.reduce((sum, tt) => sum + (Number(tt.totalQuantity) || 0), 0)
       : (updatedData.totalCapacity ?? current.totalCapacity);
 
     const merged: EventItem = {
       ...current,
       ...updatedData,
       totalCapacity: totalCap,
-      ticketTypes: updatedData.ticketTypes ?? current.ticketTypes,
+      ticketTypes: sanitizedTicketTypes,
     };
 
     this.events[index] = merged;

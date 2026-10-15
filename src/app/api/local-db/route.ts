@@ -237,14 +237,20 @@ export async function POST(req: Request) {
     }
 
     // Cas 4 : Synchronisation complète du store
-    writeDiskSafely(body);
-
-    // Synchronisation en tâche de fond vers Supabase
-    if (Array.isArray(body.events)) {
-      for (const ev of body.events) {
-        saveEventToSupabase(ev).catch(() => {});
-      }
+    if (Array.isArray(body?.events)) {
+      body.events.forEach((ev: any) => {
+        if (Array.isArray(ev.ticketTypes)) {
+          const seen = new Set<string>();
+          ev.ticketTypes = ev.ticketTypes.filter((tt: any) => {
+            const key = (tt?.name || '').trim().toLowerCase();
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        }
+      });
     }
+    writeDiskSafely(body);
 
     return NextResponse.json({ success: true, savedAt: new Date().toISOString() });
   } catch (err: any) {

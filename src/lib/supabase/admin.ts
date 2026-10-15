@@ -1,11 +1,37 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import type { EventItem, Ticket, Order, ScanLog, UserProfile, ScanResultType } from '@/types';
+import type { EventItem, Ticket, Order, ScanLog, UserProfile, ScanResultType, TicketType } from '@/types';
 
 let adminClientInstance: SupabaseClient | null = null;
 
 export function isUUID(str?: string | null): boolean {
   if (!str || typeof str !== 'string') return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str.trim());
+}
+
+export function deduplicateTicketTypes(rawList: any[]): TicketType[] {
+  const map = new Map<string, TicketType>();
+  for (const tt of rawList || []) {
+    const key = (tt.name || '').trim().toLowerCase();
+    if (!key) continue;
+    if (!map.has(key)) {
+      map.set(key, {
+        id: tt.id,
+        eventId: tt.event_id || tt.eventId,
+        name: tt.name.trim(),
+        price: Number(tt.price) || 0,
+        badge: tt.badge || '',
+        description: tt.description || '',
+        totalQuantity: Number(tt.total_quantity || tt.totalQuantity) || 0,
+        soldQuantity: Number(tt.sold_quantity || tt.soldQuantity) || 0,
+        isActive: tt.is_active !== false && tt.isActive !== false,
+      });
+    } else {
+      const cur = map.get(key)!;
+      cur.soldQuantity = Math.max(cur.soldQuantity, Number(tt.sold_quantity || tt.soldQuantity) || 0);
+      cur.totalQuantity = Math.max(cur.totalQuantity, Number(tt.total_quantity || tt.totalQuantity) || 0);
+    }
+  }
+  return Array.from(map.values());
 }
 
 export function getSupabaseAdmin(): SupabaseClient | null {
@@ -110,17 +136,7 @@ export async function fetchFullDatabaseFromSupabase(): Promise<{
       soldCapacity: Number(ev.sold_capacity) || 0,
       organizerId: ev.organizer_id || 'a0000000-0000-0000-0000-000000000001',
       organizerName: ev.organizer_name || 'Organisateur Officiel',
-      ticketTypes: (ev.ticket_types || []).map((tt: any) => ({
-        id: tt.id,
-        eventId: tt.event_id,
-        name: tt.name,
-        price: Number(tt.price) || 0,
-        badge: tt.badge || '',
-        description: tt.description || '',
-        totalQuantity: Number(tt.total_quantity) || 0,
-        soldQuantity: Number(tt.sold_quantity) || 0,
-        isActive: tt.is_active !== false,
-      })),
+      ticketTypes: deduplicateTicketTypes(ev.ticket_types || []),
       createdAt: ev.created_at || new Date().toISOString(),
     }));
 
@@ -241,32 +257,64 @@ export async function saveEventToSupabase(eventData: Partial<EventItem>): Promis
 
     const eventId = eventRow.id;
 
-    // Ticket types
+    // Ticket types - Déduplication et mise à jour ciblée (zéro création de doublon)
     const createdTicketTypes = [];
     if (eventData.ticketTypes && eventData.ticketTypes.length > 0) {
+      // 1. Lire les catégories existantes pour cet événement
+      const { data: existingTTs } = await supabase
+        .from('ticket_types')
+        .select('*')
+        .eq('event_id', eventId);
+
+      const existingByName = new Map<string, any>();
+      for (const row of existingTTs || []) {
+        const key = row.name.trim().toLowerCase();
+        if (!existingByName.has(key) || (row.sold_quantity || 0) > (existingByName.get(key)!.sold_quantity || 0)) {
+          existingByName.set(key, row);
+        }
+      }
+
+      // 2. Dédupliquer les catégories entrantes par nom
+      const uniqueIncoming = new Map<string, any>();
       for (const tt of eventData.ticketTypes) {
+        const key = (tt.name || '').trim().toLowerCase();
+        if (key && !uniqueIncoming.has(key)) {
+          uniqueIncoming.set(key, tt);
+        }
+      }
+
+      const usedIds = new Set<string>();
+
+      for (const tt of Array.from(uniqueIncoming.values())) {
+        const key = tt.name.trim().toLowerCase();
+        const existing = existingByName.get(key);
+
+        const targetId = isUUID(tt.id) ? tt.id : (existing ? existing.id : undefined);
+
         const ttPayload: any = {
           event_id: eventId,
-          name: tt.name,
+          name: tt.name.trim(),
           price: Number(tt.price) || 0,
           badge: tt.badge || null,
           description: tt.description || '',
           total_quantity: Number(tt.totalQuantity) || 1000,
-          sold_quantity: Number(tt.soldQuantity) || 0,
+          sold_quantity: Number(tt.soldQuantity) || (existing?.sold_quantity || 0),
           is_active: tt.isActive !== false,
         };
 
-        if (isUUID(tt.id)) {
-          ttPayload.id = tt.id;
+        if (targetId) {
+          ttPayload.id = targetId;
+          usedIds.add(targetId);
         }
 
-        const { data: ttRow, error: ttErr } = await supabase
+        const { data: ttRow } = await supabase
           .from('ticket_types')
           .upsert(ttPayload)
           .select()
           .single();
 
         if (ttRow) {
+          usedIds.add(ttRow.id);
           createdTicketTypes.push({
             id: ttRow.id,
             eventId: ttRow.event_id,
@@ -278,6 +326,13 @@ export async function saveEventToSupabase(eventData: Partial<EventItem>): Promis
             soldQuantity: Number(ttRow.sold_quantity) || 0,
             isActive: ttRow.is_active !== false,
           });
+        }
+      }
+
+      // 3. Nettoyer les catégories supprimées ou les doublons obsolètes sans ventes
+      for (const row of existingTTs || []) {
+        if (!usedIds.has(row.id) && (row.sold_quantity || 0) === 0) {
+          await supabase.from('ticket_types').delete().eq('id', row.id);
         }
       }
     }

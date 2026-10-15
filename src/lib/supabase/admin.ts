@@ -336,22 +336,23 @@ export async function saveOrderAndTicketsToSupabase(
       }
     }
 
-    const { data: orderRow, error: orderErr } = await supabase
-      .from('orders')
-      .insert({
-        reference: order.reference,
-        event_id: targetEventId,
-        customer_name: order.customerName,
-        customer_phone: order.customerPhone,
-        customer_email: order.customerEmail || null,
-        total_amount: order.totalAmount,
-        payment_method: order.paymentMethod,
-        payment_status: 'COMPLETED',
-        seller_id: isUUID(order.sellerId) ? order.sellerId : null,
-        channel: order.channel || 'ONLINE',
-      })
-      .select()
-      .single(),
+    const { data: orderRow, error: orderErr } = await withTimeout(
+      supabase
+        .from('orders')
+        .insert({
+          reference: order.reference,
+          event_id: targetEventId,
+          customer_name: order.customerName,
+          customer_phone: order.customerPhone,
+          customer_email: order.customerEmail || null,
+          total_amount: order.totalAmount,
+          payment_method: order.paymentMethod,
+          payment_status: 'COMPLETED',
+          seller_id: isUUID(order.sellerId) ? order.sellerId : null,
+          channel: order.channel || 'ONLINE',
+        })
+        .select()
+        .single(),
       2000
     );
 

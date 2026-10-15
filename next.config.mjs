@@ -29,6 +29,21 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react'],
   },
 
+  // ─── Headers de Caching Agressif pour les Assets Statiques ────────────────
+  async headers() {
+    return [
+      {
+        source: '/:all*(svg|jpg|png|webp|avif|ico|woff2)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+    ];
+  },
+
   typescript: {
     ignoreBuildErrors: true,
   },

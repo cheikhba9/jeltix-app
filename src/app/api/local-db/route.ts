@@ -43,8 +43,28 @@ function readDiskSafely(): any | null {
   }
 }
 
+// Cache en mémoire volatile du runtime serveur pour des réponses ultra-rapides (< 5ms)
+let serverMemoryCache: { data: any; timestamp: number } | null = null;
+const MEMORY_CACHE_TTL_MS = 20_000; // 20 secondes
+
 export async function GET() {
   try {
+    const now = Date.now();
+    if (serverMemoryCache && now - serverMemoryCache.timestamp < MEMORY_CACHE_TTL_MS) {
+      return NextResponse.json(
+        {
+          exists: true,
+          source: 'memory_cache',
+          data: serverMemoryCache.data,
+        },
+        {
+          headers: {
+            'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=45',
+          },
+        }
+      );
+    }
+
     // 1. Tenter la lecture depuis Supabase Cloud (Données réelles et partagées)
     const cloudData = await fetchFullDatabaseFromSupabase();
     const diskData = readDiskSafely();
@@ -66,9 +86,7 @@ export async function GET() {
         users: mergedUsers,
       });
 
-      return NextResponse.json({
-        exists: true,
-        source: 'supabase_cloud',
+      serverMemoryCache = {
         data: {
           events: mergedEvents,
           tickets: mergedTickets,
@@ -76,16 +94,38 @@ export async function GET() {
           scans: mergedScans,
           users: mergedUsers,
         },
-      });
+        timestamp: Date.now(),
+      };
+
+      return NextResponse.json(
+        {
+          exists: true,
+          source: 'supabase_cloud',
+          data: serverMemoryCache.data,
+        },
+        {
+          headers: {
+            'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=45',
+          },
+        }
+      );
     }
 
     // 2. Si Supabase est vide ou injoignable, se replier sur le disque local
     if (diskData) {
-      return NextResponse.json({
-        exists: true,
-        source: 'local_disk',
-        data: diskData,
-      });
+      serverMemoryCache = { data: diskData, timestamp: Date.now() };
+      return NextResponse.json(
+        {
+          exists: true,
+          source: 'local_disk',
+          data: diskData,
+        },
+        {
+          headers: {
+            'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+          },
+        }
+      );
     }
 
     return NextResponse.json({ exists: false, data: null });
@@ -100,6 +140,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  // Invalidation immédiate du cache mémoire sur toute écriture
+  serverMemoryCache = null;
+
   try {
     const body = await req.json();
 

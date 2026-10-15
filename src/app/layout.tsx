@@ -55,10 +55,10 @@ export default function RootLayout({
     >
       <head>
         {/*
-          Material Symbols icon font — chargé via preconnect + stylesheet direct.
-          next/font ne supporte pas les icon fonts variables. display=optional
-          évite tout impact sur le LCP (n'attend pas le chargement de la font).
+          Google Fonts preconnect — élimine les allers-retours DNS/TLS pour Material Symbols.
+          Inter est auto-hébergé par next/font/google (zéro appel CDN, LCP optimal).
         */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
           rel="stylesheet"

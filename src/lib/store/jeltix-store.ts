@@ -300,11 +300,19 @@ class JeltixStore {
     this.syncFromSupabaseAndDisk();
   }
 
-  public async syncFromSupabaseAndDisk() {
-    if (typeof window === 'undefined' || this.isSyncing) return;
-    this.isSyncing = true;
+  private lastSyncTime = 0;
+  private readonly SYNC_THROTTLE_MS = 25_000; // 25s de cache mémoire entre les rafraîchissements
 
-    // 1. DISQUE MAC EN PRIORITÉ ABSOLUE (/api/local-db)
+  public async syncFromSupabaseAndDisk(force = false) {
+    if (typeof window === 'undefined' || this.isSyncing) return;
+    const now = Date.now();
+    if (!force && this.lastSyncTime > 0 && now - this.lastSyncTime < this.SYNC_THROTTLE_MS) {
+      return;
+    }
+    this.isSyncing = true;
+    let didSync = false;
+
+    // 1. Récupération optimisée unifiée (/api/local-db) — Supabase Admin + Cache serveur
     try {
       const res = await fetch('/api/local-db');
       if (res.ok) {
@@ -328,72 +336,36 @@ class JeltixStore {
 
           this.saveLocalOnly();
           this.listeners.forEach((l) => l());
+          didSync = true;
         }
       }
     } catch (diskErr) {
       console.warn('Notice sync local-db:', diskErr);
     }
 
-    // 2. Synchronisation secondaire avec Supabase Cloud (protégée par timeout 1.5s anti-latence)
-    try {
-      const supabase = createClient();
-      const fetchPromise = supabase
-        .from('events')
-        .select(`*, ticket_types (*)`)
-        .order('start_date', { ascending: true });
-      const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: new Error('Timeout') }), 1500)
-      );
-      const { data: sbEvents, error: eventsErr } = await Promise.race([fetchPromise, timeoutPromise]);
+    // 2. Si /api/local-db a réussi, PAS besoin de 4 requêtes redondantes directes vers Supabase !
+    // Repli direct client Supabase uniquement si /api/local-db n'a pas répondu
+    if (!didSync) {
+      try {
+        const supabase = createClient();
+        const { data: sbEvents, error: eventsErr } = await supabase
+          .from('events')
+          .select(`*, ticket_types (*)`)
+          .order('start_date', { ascending: true });
 
-      if (!eventsErr && Array.isArray(sbEvents) && sbEvents.length > 0) {
-        const remoteEvents = sbEvents.map(mapSupabaseEventToModel);
-        this.events = mergeById(this.events, remoteEvents);
-
-        // Tickets
-        const { data: sbTickets } = await supabase.from('tickets').select('*');
-        if (Array.isArray(sbTickets) && sbTickets.length > 0) {
-          const remoteTickets = sbTickets.map(mapSupabaseTicketToModel);
-          this.tickets = mergeById(this.tickets, remoteTickets);
+        if (!eventsErr && Array.isArray(sbEvents) && sbEvents.length > 0) {
+          const remoteEvents = sbEvents.map(mapSupabaseEventToModel);
+          this.events = mergeById(this.events, remoteEvents);
+          this.saveLocalOnly();
+          this.listeners.forEach((l) => l());
         }
-
-        // Scans
-        const { data: sbScans } = await supabase.from('scans').select('*').order('created_at', { ascending: false });
-        if (Array.isArray(sbScans) && sbScans.length > 0) {
-          const remoteScans = sbScans.map(mapSupabaseScanToModel);
-          this.scans = mergeById(this.scans, remoteScans);
-        }
-
-        // Orders
-        const { data: sbOrders } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-        if (Array.isArray(sbOrders) && sbOrders.length > 0) {
-          const remoteOrders = sbOrders.map((o: any) => ({
-            id: o.id,
-            reference: o.reference,
-            eventId: o.event_id,
-            eventTitle: '',
-            customerName: o.customer_name,
-            customerPhone: o.customer_phone,
-            customerEmail: o.customer_email || '',
-            items: [],
-            totalAmount: Number(o.total_amount) || 0,
-            paymentMethod: o.payment_method || 'WAVE',
-            paymentStatus: o.payment_status || 'COMPLETED',
-            sellerId: o.seller_id,
-            channel: o.channel || 'ONLINE',
-            createdAt: o.created_at || new Date().toISOString(),
-          }));
-          this.orders = mergeById(this.orders, remoteOrders);
-        }
-
-        this.saveLocalOnly();
-        this.listeners.forEach((l) => l());
+      } catch (sbErr) {
+        console.warn('Repli Supabase client direct:', sbErr);
       }
-    } catch (sbErr) {
-      console.warn('Note Supabase cloud (utilisation du stockage local Mac):', sbErr);
-    } finally {
-      this.isSyncing = false;
     }
+
+    this.lastSyncTime = Date.now();
+    this.isSyncing = false;
   }
 
   // Alias pour rétrocompatibilité

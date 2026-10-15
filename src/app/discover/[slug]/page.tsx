@@ -31,13 +31,35 @@ export default function PublicEventDetailPage({
 }) {
   const resolvedParams = use(params);
   const router = useRouter();
-  const { getEventBySlug } = useJeltixStore();
+  const { getEventBySlug, events } = useJeltixStore();
   const event = getEventBySlug(resolvedParams.slug);
 
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [copiedLink, setCopiedLink] = useState(false);
 
   if (!event) {
+    if (events.length === 0) {
+      return (
+        <div className="min-h-screen flex flex-col bg-background text-on-surface">
+          <PublicHeader />
+          <div className="flex-1 max-w-[1440px] mx-auto px-4 sm:px-6 py-12 w-full animate-pulse space-y-6">
+            <div className="h-6 bg-slate-200 dark:bg-white/10 rounded-lg w-40" />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              <div className="lg:col-span-8 space-y-4">
+                <div className="h-72 sm:h-96 bg-slate-200 dark:bg-white/10 rounded-3xl" />
+                <div className="h-10 bg-slate-200 dark:bg-white/10 rounded-xl w-3/4" />
+                <div className="h-20 bg-slate-200 dark:bg-white/10 rounded-2xl" />
+              </div>
+              <div className="lg:col-span-4">
+                <div className="h-96 bg-slate-200 dark:bg-white/10 rounded-3xl" />
+              </div>
+            </div>
+          </div>
+          <Footer />
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-background">
         <h1 className="text-2xl font-bold mb-2 text-on-surface">Événement introuvable</h1>

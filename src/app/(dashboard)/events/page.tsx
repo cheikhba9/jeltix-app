@@ -66,12 +66,38 @@ export default function EventsManagementPage() {
     );
   }
 
-  // Multi-tenant isolation: Organizers see their own events; Sellers and Super Admins see events they can sell/manage
+  // Accès restreint : Le vendeur guichet gère la vente, pas l'administration des événements
+  if (currentUser && currentUser.role === 'SELLER') {
+    return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-[#4EED15] flex items-center justify-center mb-4 ring-8 ring-blue-500/10">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-black text-on-surface mb-1">Espace Vendeur Guichet POS</h2>
+        <p className="text-xs text-on-surface-variant max-w-sm mb-5 leading-relaxed">
+          Votre compte est dédié à l'encaissement et à la vente de billets. La création et configuration des événements relève de votre Organisateur.
+        </p>
+        <Link
+          href="/sales/pos"
+          className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold inline-flex items-center gap-2 shadow-md hover:scale-[0.98] transition"
+        >
+          <span className="material-symbols-outlined text-[18px]">point_of_sale</span>
+          <span>Accéder au Guichet POS</span>
+        </Link>
+      </div>
+    );
+  }
+
+  // Multi-tenant strict : L'Organisateur ne voit JAMAIS les événements des autres organisateurs ou de la plateforme
   const scopedEvents = useMemo(() => {
-    if (!currentUser || currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'SELLER') {
+    if (!currentUser) return [];
+    if (currentUser.role === 'SUPER_ADMIN') {
       return events;
     }
-    return events.filter((evt) => !evt.organizerId || evt.organizerId === currentUser.id);
+    if (currentUser.role === 'ORGANIZER') {
+      return events.filter((evt) => evt.organizerId === currentUser.id);
+    }
+    return [];
   }, [events, currentUser]);
 
   const filteredEvents = useMemo(() => {

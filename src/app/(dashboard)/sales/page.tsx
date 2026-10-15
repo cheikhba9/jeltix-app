@@ -78,17 +78,32 @@ export default function SalesPage() {
         .order('created_at', { ascending: false })
         .limit(200);
 
-      if (isSeller) {
-        query = query.eq('channel', 'POS') as typeof query;
-      } else if (isOrganizer && currentUser?.id) {
+      if (isOrganizer && currentUser?.id) {
         const { data: orgEvents } = await supabase
           .from('events')
           .select('id')
           .eq('organizer_id', currentUser.id);
         const ids = (orgEvents ?? []).map((e: { id: string }) => e.id);
-        if (ids.length > 0) {
-          query = query.in('event_id', ids) as typeof query;
+        if (ids.length === 0) {
+          // Nouvel organisateur : strictement 0 commande
+          setOrders([]);
+          setLoading(false);
+          return;
         }
+        query = query.in('event_id', ids) as typeof query;
+      } else if (isSeller) {
+        const orgId = currentUser?.organizationId || currentUser?.id;
+        const { data: orgEvents } = await supabase
+          .from('events')
+          .select('id')
+          .eq('organizer_id', orgId);
+        const ids = (orgEvents ?? []).map((e: { id: string }) => e.id);
+        if (ids.length === 0) {
+          setOrders([]);
+          setLoading(false);
+          return;
+        }
+        query = query.in('event_id', ids) as typeof query;
       }
 
       const { data, error } = await query;

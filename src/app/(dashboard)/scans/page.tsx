@@ -31,12 +31,13 @@ import type { ScanLog } from '@/types';
 type FilterResult = 'ALL' | 'VALID' | 'ALREADY_SCANNED' | 'INVALID';
 
 export default function ScansPage() {
-  const { scans, currentUser } = useJeltixStore();
+  const { scans, events, currentUser } = useJeltixStore();
   const { addToast } = useToast();
 
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+  const isOrganizer = currentUser?.role === 'ORGANIZER';
   const isController = currentUser?.role === 'CONTROLLER';
-  const isAuthorized = isSuperAdmin || isController;
+  const isAuthorized = isSuperAdmin || isOrganizer || isController;
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,18 +46,38 @@ export default function ScansPage() {
   const [selectedScan, setSelectedScan] = useState<ScanLog | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
+  // Scans strictement scopés par rôle (0 si nouvel organisateur sans événement)
+  const scopedScans = useMemo(() => {
+    if (isSuperAdmin) return scans;
+    if (isOrganizer) {
+      const orgEvents = events.filter((e) => e.organizerId === currentUser?.id);
+      const orgEventIds = new Set(orgEvents.map((e) => e.id));
+      return scans.filter((s) => orgEventIds.has(s.eventId));
+    }
+    if (isController) {
+      const orgId = currentUser?.organizationId;
+      if (orgId) {
+        const orgEvents = events.filter((e) => e.organizerId === orgId);
+        const orgEventIds = new Set(orgEvents.map((e) => e.id));
+        return scans.filter((s) => orgEventIds.has(s.eventId) || s.controllerName === currentUser?.fullName);
+      }
+      return scans;
+    }
+    return [];
+  }, [scans, events, isSuperAdmin, isOrganizer, isController, currentUser]);
+
   // Gates list extracted from scans
   const availableGates = useMemo(() => {
     const set = new Set<string>();
-    scans.forEach((s) => {
+    scopedScans.forEach((s) => {
       if (s.gate) set.add(s.gate);
     });
     return Array.from(set);
-  }, [scans]);
+  }, [scopedScans]);
 
   // Filtered scans
   const filteredScans = useMemo(() => {
-    return scans.filter((scan) => {
+    return scopedScans.filter((scan) => {
       // Status filter
       if (statusFilter !== 'ALL' && scan.result !== statusFilter) {
         return false;
@@ -78,13 +99,13 @@ export default function ScansPage() {
       }
       return true;
     });
-  }, [scans, statusFilter, selectedGate, searchQuery]);
+  }, [scopedScans, statusFilter, selectedGate, searchQuery]);
 
   // Metrics
-  const totalScans = scans.length;
-  const validScans = scans.filter((s) => s.result === 'VALID').length;
-  const duplicateScans = scans.filter((s) => s.result === 'ALREADY_SCANNED').length;
-  const invalidScans = scans.filter((s) => s.result === 'INVALID').length;
+  const totalScans = scopedScans.length;
+  const validScans = scopedScans.filter((s) => s.result === 'VALID').length;
+  const duplicateScans = scopedScans.filter((s) => s.result === 'ALREADY_SCANNED').length;
+  const invalidScans = scopedScans.filter((s) => s.result === 'INVALID').length;
   const fraudScans = duplicateScans + invalidScans;
   const successRate = totalScans > 0 ? Math.round((validScans / totalScans) * 100) : 100;
 

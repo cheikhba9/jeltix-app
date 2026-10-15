@@ -62,10 +62,28 @@ function buildSmoothPath(points: { cx: number; cy: number }[]): string {
 const GRADIENT_ID = `chartGrad-${Math.random().toString(36).slice(2, 7)}`;
 
 export const SalesChart = memo(function SalesChart() {
-  const { orders } = useJeltixStore();
+  const { orders, events, currentUser } = useJeltixStore();
   const [hoveredPoint, setHoveredPoint] = useState<DataPoint | null>(null);
 
-  const dataPoints = useMemo(() => buildChartData(orders), [orders]);
+  const isOrganizer = currentUser?.role === 'ORGANIZER';
+  const isSeller = currentUser?.role === 'SELLER';
+
+  const scopedOrders = useMemo(() => {
+    if (isOrganizer) {
+      const orgEvents = events.filter((e) => e.organizerId === currentUser?.id);
+      const orgEventIds = new Set(orgEvents.map((e) => e.id));
+      return orders.filter((o) => orgEventIds.has(o.eventId));
+    }
+    if (isSeller) {
+      const orgId = currentUser?.organizationId || currentUser?.id;
+      const orgEvents = events.filter((e) => e.organizerId === orgId);
+      const orgEventIds = new Set(orgEvents.map((e) => e.id));
+      return orders.filter((o) => (o.sellerId && o.sellerId === currentUser?.id) || orgEventIds.has(o.eventId));
+    }
+    return orders;
+  }, [orders, events, isOrganizer, isSeller, currentUser]);
+
+  const dataPoints = useMemo(() => buildChartData(scopedOrders), [scopedOrders]);
   const linePath = useMemo(() => buildSmoothPath(dataPoints), [dataPoints]);
   const areaPath = useMemo(() => {
     if (dataPoints.length === 0) return '';
@@ -74,7 +92,7 @@ export const SalesChart = memo(function SalesChart() {
     return `M${firstPt.cx},300 ${buildSmoothPath(dataPoints).slice(1)} L${lastPt.cx},300 Z`;
   }, [dataPoints]);
 
-  const hasData = orders.length > 0;
+  const hasData = scopedOrders.length > 0;
 
   // Totaux synthétiques
   const weekTotalSales = dataPoints.reduce((s, d) => s + d.sales, 0);

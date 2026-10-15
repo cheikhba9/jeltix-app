@@ -53,14 +53,16 @@ export default function DashboardPage() {
       } else if (isOrganizer && currentUser?.id) {
         setKpis(await fetchOrganizerKPIs(currentUser.id));
       } else if (isSeller) {
-        // KPIs pour le Vendeur : ses ventes au guichet + événements actifs
-        const sellerOrders = currentUser?.id ? orders.filter((o) => o.sellerId === currentUser.id) : orders;
-        const totalRevenue = sellerOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-        const totalTicketsSold = sellerOrders.reduce(
-          (sum, o) => sum + (o.items?.reduce((acc, it) => acc + it.quantity, 0) || 1),
-          0
+        // KPIs pour le Vendeur : ventes au guichet de son organisation
+        const orgId = currentUser?.organizationId || currentUser?.id;
+        const myOrgEvents = events.filter((e) => e.organizerId === orgId);
+        const myOrgEventIds = new Set(myOrgEvents.map((e) => e.id));
+        const sellerOrders = orders.filter(
+          (o) => (currentUser?.id && o.sellerId === currentUser.id) || myOrgEventIds.has(o.eventId)
         );
-        const activeEventsCount = events.filter((e) => e.status === 'PUBLISHED').length;
+        const totalRevenue = sellerOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+        const totalTicketsSold = myOrgEvents.reduce((sum, e) => sum + (e.soldCapacity || 0), 0);
+        const activeEventsCount = myOrgEvents.filter((e) => e.status === 'PUBLISHED').length;
 
         setKpis({
           totalRevenue,
@@ -85,30 +87,50 @@ export default function DashboardPage() {
     loadKPIs();
   }, [loadKPIs]);
 
-  // Redirection en cours
-  if (role === 'SELLER' || role === 'CONTROLLER') {
+  // Redirection en cours pour les contrôleurs
+  if (role === 'CONTROLLER') {
     return (
       <div className="py-24 flex flex-col items-center justify-center text-center gap-4">
         <Loader2 className="w-8 h-8 animate-spin text-[#0038A8] dark:text-[#4EED15]" />
         <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-          Redirection vers votre espace de travail ({role === 'SELLER' ? 'Guichet Caisse POS' : 'Scanner Contrôleur'})…
+          Redirection vers le Scanner Contrôleur…
         </p>
       </div>
     );
   }
 
-  // Calcul en direct depuis le store Mac si les KPIs distants sont à 0
-  const localActiveEvents = events.filter((e) => e.status === 'PUBLISHED').length;
-  const localTicketsSold = events.reduce((sum, e) => sum + (e.soldCapacity || 0), 0);
-  const localRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  // Isolation stricte des événements et commandes par rôle
+  const scopedEvents = isAdmin
+    ? events
+    : isOrganizer
+    ? events.filter((e) => e.organizerId === currentUser?.id)
+    : isSeller
+    ? events.filter((e) => e.organizerId === (currentUser?.organizationId || currentUser?.id))
+    : [];
 
-  const totalRevenue = kpis?.totalRevenue || localRevenue;
-  const totalTicketsSold = kpis?.totalTicketsSold || localTicketsSold;
-  const activeEventsCount = kpis?.activeEventsCount || localActiveEvents;
+  const scopedEventIds = new Set(scopedEvents.map((e) => e.id));
+
+  const scopedOrders = isAdmin
+    ? orders
+    : isOrganizer
+    ? orders.filter((o) => scopedEventIds.has(o.eventId))
+    : isSeller
+    ? orders.filter((o) => (o.sellerId && o.sellerId === currentUser?.id) || scopedEventIds.has(o.eventId))
+    : [];
+
+  // Calcul local strictement scopé (0 si nouvel organisateur sans événement)
+  const localActiveEvents = scopedEvents.filter((e) => e.status === 'PUBLISHED').length;
+  const localTicketsSold = scopedEvents.reduce((sum, e) => sum + (e.soldCapacity || 0), 0);
+  const localRevenue = scopedOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+  // Pour un organisateur ou un vendeur, 0 doit strictement rester 0 (pas de fallback sur les données globales)
+  const totalRevenue = kpis?.totalRevenue ?? (isOrganizer || isSeller ? 0 : localRevenue);
+  const totalTicketsSold = kpis?.totalTicketsSold ?? (isOrganizer || isSeller ? 0 : localTicketsSold);
+  const activeEventsCount = kpis?.activeEventsCount ?? (isOrganizer || isSeller ? 0 : localActiveEvents);
   const successfulScansToday = kpis?.successfulScansToday ?? 0;
 
-  // Dernières commandes (5 max)
-  const recentOrders = orders.slice(0, 5);
+  // Dernières commandes strictement scopées
+  const recentOrders = scopedOrders.slice(0, 5);
 
   return (
     <div className="flex flex-col w-full gap-8">
@@ -140,6 +162,34 @@ export default function DashboardPage() {
           Actualiser
         </button>
       </div>
+
+      {/* ── Bannière de bienvenue pour nouvel Organisateur (0 événements) ── */}
+      {isOrganizer && activeEventsCount === 0 && !loading && (
+        <div className="bg-gradient-to-r from-[#0038A8]/10 via-[#0038A8]/5 to-transparent border border-[#0038A8]/20 dark:border-[#4EED15]/20 rounded-3xl p-6 sm:p-8 animate-fade-up">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div className="max-w-2xl space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0038A8]/10 dark:bg-[#4EED15]/10 text-[#0038A8] dark:text-[#4EED15] text-[11px] font-black font-mono">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>NOUVEL ORGANISATEUR · ESPACE VIERGE</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                Bienvenue sur votre espace Organisateur Jël Tix
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                Vous n'avez pas encore publié d'événement. Vos recettes, billets vendus et flux de scans s'afficheront ici en direct dès la mise en ligne de votre première billetterie.
+              </p>
+            </div>
+            <Link
+              href="/events/new"
+              prefetch={true}
+              className="shrink-0 bg-[#0038A8] dark:bg-[#4EED15] text-white dark:text-[#002D8C] font-black text-xs px-6 py-3.5 rounded-2xl shadow-lg hover:scale-105 active:scale-95 transition-all inline-flex items-center gap-2 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Créer mon premier événement</span>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* ── 4 KPI Stat Cards ──────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 animate-fade-up stagger-2">
@@ -400,14 +450,14 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Liens rapides terrain (Admin seulement) ───────────── */}
-      {isAdmin && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-up stagger-6">
-          {[
+      {/* ── Liens rapides terrain & outils opérationnels ───────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-up stagger-6">
+        {isAdmin &&
+          [
             { href: '/sales/pos', icon: 'point_of_sale', label: 'Guichet POS', color: 'text-emerald-600 dark:text-[#4EED15] bg-emerald-50 dark:bg-emerald-950/30' },
-            { href: '/scan', icon: 'qr_code_scanner', label: 'Scanner', color: 'text-[#0038A8] dark:text-[#4EED15] bg-blue-50 dark:bg-blue-950/30', external: true },
-            { href: '/reports', icon: 'bar_chart', label: 'Rapports', color: 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30' },
-            { href: '/users', icon: 'group', label: 'Utilisateurs', color: 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5' },
+            { href: '/scan', icon: 'qr_code_scanner', label: 'Scanner Contrôle', color: 'text-[#0038A8] dark:text-[#4EED15] bg-blue-50 dark:bg-blue-950/30', external: true },
+            { href: '/reports', icon: 'bar_chart', label: 'Rapports & Audit', color: 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30' },
+            { href: '/users', icon: 'group', label: 'Utilisateurs & Rôles', color: 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5' },
           ].map((item) => (
             <Link
               key={item.href}
@@ -424,8 +474,50 @@ export default function DashboardPage() {
               </span>
             </Link>
           ))}
-        </div>
-      )}
+
+        {isOrganizer &&
+          [
+            { href: '/sales/pos', icon: 'point_of_sale', label: 'Guichet POS', color: 'text-emerald-600 dark:text-[#4EED15] bg-emerald-50 dark:bg-emerald-950/30' },
+            { href: '/scan', icon: 'qr_code_scanner', label: 'Scanner de Porte', color: 'text-[#0038A8] dark:text-[#4EED15] bg-blue-50 dark:bg-blue-950/30', external: true },
+            { href: '/users', icon: 'badge', label: 'Mon Équipe', color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30' },
+            { href: '/events', icon: 'calendar_month', label: 'Mes Événements', color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30' },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              prefetch={true}
+              target={item.external ? '_blank' : undefined}
+              className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-white dark:bg-[#0B1936] border border-slate-200/90 dark:border-white/10 hover:border-[#0038A8]/30 dark:hover:border-[#4EED15]/30 transition-all group card-hover-glow text-center"
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.color} group-hover:scale-110 transition-transform duration-200`}>
+                <span className="material-symbols-outlined text-[22px]">{item.icon}</span>
+              </div>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                {item.label}
+              </span>
+            </Link>
+          ))}
+
+        {isSeller &&
+          [
+            { href: '/sales/pos', icon: 'point_of_sale', label: 'Ouvrir Guichet POS', color: 'text-emerald-600 dark:text-[#4EED15] bg-emerald-50 dark:bg-emerald-950/30' },
+            { href: '/sales', icon: 'receipt_long', label: 'Mes Encaissements', color: 'text-[#0038A8] dark:text-[#4EED15] bg-blue-50 dark:bg-blue-950/30' },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              prefetch={true}
+              className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-white dark:bg-[#0B1936] border border-slate-200/90 dark:border-white/10 hover:border-[#0038A8]/30 dark:hover:border-[#4EED15]/30 transition-all group card-hover-glow text-center sm:col-span-2"
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.color} group-hover:scale-110 transition-transform duration-200`}>
+                <span className="material-symbols-outlined text-[22px]">{item.icon}</span>
+              </div>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                {item.label}
+              </span>
+            </Link>
+          ))}
+      </div>
     </div>
   );
 }

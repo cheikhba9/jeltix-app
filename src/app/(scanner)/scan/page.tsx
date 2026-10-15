@@ -68,8 +68,9 @@ export default function PwaScannerPage() {
   const { theme } = useTheme();
 
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+  const isOrganizer = currentUser?.role === 'ORGANIZER';
   const isController = currentUser?.role === 'CONTROLLER';
-  const isAuthorized = isSuperAdmin || isController;
+  const isAuthorized = isSuperAdmin || isOrganizer || isController;
 
   const [selectedGate, setSelectedGate] = useState('Porte A - Entrée Principale');
   const [controllerName] = useState(currentUser?.fullName || 'Agent Contrôle #12');
@@ -78,7 +79,7 @@ export default function PwaScannerPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
-  // Accès restreint : Seuls Super Admin et Contrôleur peuvent scanner
+  // Accès restreint : Seuls Super Admin, Organisateur et Contrôleur peuvent scanner
   if (currentUser && !isAuthorized) {
     return (
       <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center">
@@ -87,7 +88,7 @@ export default function PwaScannerPage() {
         </div>
         <h2 className="text-xl font-black mb-2">Accès Restreint au Scanner</h2>
         <p className="text-xs text-slate-400 max-w-md mb-6 leading-relaxed">
-          Le module de contrôle d'accès et scan de billets est réservé aux Agents de Contrôle et Super Administrateurs.
+          Le module de contrôle d'accès et scan de billets est réservé aux Agents de Contrôle, Organisateurs et Super Administrateurs.
         </p>
         <Link
           href={currentUser.role === 'SELLER' ? '/sales/pos' : '/dashboard'}

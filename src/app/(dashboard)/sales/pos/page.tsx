@@ -46,18 +46,38 @@ export default function POSPage() {
   const { events, purchaseTickets, currentUser } = useJeltixStore();
   const { addToast } = useToast();
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+  const isOrganizer = currentUser?.role === 'ORGANIZER';
   const isSeller = currentUser?.role === 'SELLER';
-  const isAuthorized = isSuperAdmin || isSeller;
+  const isAuthorized = isSuperAdmin || isOrganizer || isSeller;
 
-  const publishedEvents = events.filter((e) => e.status === 'PUBLISHED');
+  const scopedEvents = useMemo(() => {
+    if (isSuperAdmin) return events;
+    if (isOrganizer) {
+      return events.filter((e) => e.organizerId === currentUser?.id);
+    }
+    if (isSeller) {
+      const orgId = currentUser?.organizationId || currentUser?.id;
+      return events.filter((e) => e.organizerId === orgId);
+    }
+    return [];
+  }, [events, isSuperAdmin, isOrganizer, isSeller, currentUser]);
+
+  const publishedEvents = useMemo(() => {
+    return scopedEvents.filter((e) => e.status === 'PUBLISHED');
+  }, [scopedEvents]);
+
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const [selectedEventId, setSelectedEventId] = useState<string>(
-    publishedEvents[0]?.id || events[0]?.id || ''
-  );
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
 
-  const currentEvent = events.find((e) => e.id === selectedEventId) || events[0];
+  useEffect(() => {
+    if (publishedEvents.length > 0 && (!selectedEventId || !publishedEvents.some(e => e.id === selectedEventId))) {
+      setSelectedEventId(publishedEvents[0].id);
+    }
+  }, [publishedEvents, selectedEventId]);
+
+  const currentEvent = publishedEvents.find((e) => e.id === selectedEventId) || publishedEvents[0];
 
   const [cart, setCart] = useState<Record<string, CartItem>>({});
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('CASH');
@@ -197,20 +217,26 @@ export default function POSPage() {
           <label className="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-1 font-mono">
             Événement à Encaisser
           </label>
-          <select
-            value={selectedEventId}
-            onChange={(e) => {
-              setSelectedEventId(e.target.value);
-              setCart({});
-            }}
-            className="w-full sm:w-72 bg-surface text-on-surface text-xs font-bold py-2.5 px-3 rounded-xl border border-outline-variant/40 shadow-xs focus:ring-2 focus:ring-[#0038A8] outline-none cursor-pointer"
-          >
-            {events.map((evt) => (
-              <option key={evt.id} value={evt.id}>
-                {evt.title.length > 38 ? evt.title.substring(0, 38) + '...' : evt.title}
-              </option>
-            ))}
-          </select>
+          {publishedEvents.length > 0 ? (
+            <select
+              value={selectedEventId}
+              onChange={(e) => {
+                setSelectedEventId(e.target.value);
+                setCart({});
+              }}
+              className="w-full sm:w-72 bg-surface text-on-surface text-xs font-bold py-2.5 px-3 rounded-xl border border-outline-variant/40 shadow-xs focus:ring-2 focus:ring-[#0038A8] outline-none cursor-pointer"
+            >
+              {publishedEvents.map((evt) => (
+                <option key={evt.id} value={evt.id}>
+                  {evt.title.length > 38 ? evt.title.substring(0, 38) + '...' : evt.title}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-xs text-amber-600 dark:text-amber-400 font-bold">
+              Aucun événement actif
+            </span>
+          )}
         </div>
       </div>
 

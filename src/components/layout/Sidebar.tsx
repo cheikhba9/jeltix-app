@@ -32,7 +32,7 @@ const NAV_ITEMS = [
     href: '/events',
     label: 'Événements',
     icon: Calendar,
-    roles: ['SUPER_ADMIN', 'ORGANIZER', 'SELLER'],
+    roles: ['SUPER_ADMIN', 'ORGANIZER'],
     description: 'Catalogue & Billetterie',
   },
   {

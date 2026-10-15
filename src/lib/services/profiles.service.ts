@@ -67,6 +67,7 @@ export async function syncUserProfile(
         fullName: existingProfile.full_name,
         role: existingProfile.role,
         avatarUrl: existingProfile.avatar_url,
+        organizationId: existingProfile.organization_id || undefined,
         isActive: existingProfile.is_active !== false,
         createdAt: existingProfile.created_at,
       };

@@ -937,9 +937,12 @@ class JeltixStore {
   // KPIs en temps réel
   public getDashboardKPIs(): DashboardKPIs {
     const isOrganizer = this.currentUser?.role === 'ORGANIZER';
+    const isSeller = this.currentUser?.role === 'SELLER';
 
     const scopedEvents = isOrganizer
       ? this.events.filter((e) => e.organizerId === this.currentUser?.id)
+      : isSeller
+      ? this.events.filter((e) => e.organizerId === (this.currentUser?.organizationId || this.currentUser?.id))
       : this.events;
 
     const scopedEventIds = new Set(scopedEvents.map((e) => e.id));

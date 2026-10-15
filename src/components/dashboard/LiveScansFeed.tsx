@@ -1,17 +1,35 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useJeltixStore } from '@/lib/store/jeltix-store';
 import { formatRelativeTime } from '@/lib/utils/format';
 import Link from 'next/link';
 import { CheckCircle2, AlertTriangle, ArrowRight, RefreshCw } from 'lucide-react';
 
 export function LiveScansFeed() {
-  const { scans } = useJeltixStore();
+  const { scans, events, currentUser } = useJeltixStore();
   const [mounted, setMounted] = useState(false);
   const [visibleCount, setVisibleCount] = useState(6);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const isOrganizer = currentUser?.role === 'ORGANIZER';
+  const isSeller = currentUser?.role === 'SELLER';
+
+  const scopedScans = useMemo(() => {
+    if (isOrganizer) {
+      const orgEvents = events.filter((e) => e.organizerId === currentUser?.id);
+      const orgEventIds = new Set(orgEvents.map((e) => e.id));
+      return scans.filter((s) => orgEventIds.has(s.eventId));
+    }
+    if (isSeller) {
+      const orgId = currentUser?.organizationId || currentUser?.id;
+      const orgEvents = events.filter((e) => e.organizerId === orgId);
+      const orgEventIds = new Set(orgEvents.map((e) => e.id));
+      return scans.filter((s) => orgEventIds.has(s.eventId));
+    }
+    return scans;
+  }, [scans, events, isOrganizer, isSeller, currentUser]);
 
   useEffect(() => {
     setMounted(true);
@@ -25,11 +43,11 @@ export function LiveScansFeed() {
     return () => clearInterval(timer);
   }, []);
 
-  const recentScans = scans.slice(0, visibleCount);
-  const hasMore = scans.length > visibleCount;
+  const recentScans = scopedScans.slice(0, visibleCount);
+  const hasMore = scopedScans.length > visibleCount;
 
-  const validCount = scans.filter((s) => s.result === 'VALID').length;
-  const invalidCount = scans.filter((s) => s.result !== 'VALID').length;
+  const validCount = scopedScans.filter((s) => s.result === 'VALID').length;
+  const invalidCount = scopedScans.filter((s) => s.result !== 'VALID').length;
 
   return (
     <div
@@ -53,7 +71,7 @@ export function LiveScansFeed() {
       </div>
 
       {/* Mini stats row */}
-      {mounted && scans.length > 0 && (
+      {mounted && scopedScans.length > 0 && (
         <div className="flex items-center gap-3 mb-3 text-[11px]">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 font-bold">
             <CheckCircle2 className="w-3.5 h-3.5" />

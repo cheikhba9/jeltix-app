@@ -27,6 +27,7 @@ import {
   Clock,
   Sparkles,
   Pencil,
+  Loader2,
 } from 'lucide-react';
 import { EditEventModal } from '@/components/events/EditEventModal';
 
@@ -39,6 +40,8 @@ export default function EventsManagementPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [eventToDelete, setEventToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const ITEMS_PER_PAGE = 8;
 
   // Accès restreint : Le contrôleur n'a accès qu'au scanner
@@ -447,7 +450,7 @@ export default function EventsManagementPage() {
                         )}
                         {currentUser?.role !== 'SELLER' && (
                           <button
-                            onClick={() => handleDelete(evt.id, evt.title)}
+                            onClick={() => setEventToDelete({ id: evt.id, title: evt.title })}
                             className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors cursor-pointer"
                             title="Supprimer l'événement"
                           >
@@ -651,7 +654,7 @@ export default function EventsManagementPage() {
                             )}
                             {currentUser?.role !== 'SELLER' && (
                               <button
-                                onClick={() => handleDelete(evt.id, evt.title)}
+                                onClick={() => setEventToDelete({ id: evt.id, title: evt.title })}
                                 className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors cursor-pointer"
                                 title="Supprimer l'événement"
                               >
@@ -811,6 +814,77 @@ export default function EventsManagementPage() {
         onClose={() => setEditingEvent(null)}
         onSave={handleSaveEdit}
       />
+
+      {/* Modal de Confirmation de Suppression personnalisé & infaillible */}
+      {eventToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white dark:bg-[#0B1936] rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-white/10 space-y-4 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto">
+              <Trash2 className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900 dark:text-white">
+                Supprimer cet événement ?
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-white/60 mt-1.5 leading-relaxed">
+                Êtes-vous sûr de vouloir supprimer définitivement l'événement{' '}
+                <strong className="text-slate-900 dark:text-white">« {eventToDelete.title} »</strong> ?
+                Cette action supprimera également les billets et scans associés.
+              </p>
+            </div>
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setEventToDelete(null)}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    setIsDeleting(true);
+                    await deleteEvent(eventToDelete.id);
+                    addToast({
+                      type: 'info',
+                      title: 'Événement supprimé',
+                      message: `L'événement « ${eventToDelete.title} » a été supprimé.`,
+                    });
+                    if (selectedEvent?.id === eventToDelete.id || selectedEvent?.slug === eventToDelete.id) {
+                      setSelectedEvent(null);
+                    }
+                    setEventToDelete(null);
+                  } catch (err) {
+                    addToast({
+                      type: 'error',
+                      title: 'Erreur',
+                      message: 'Impossible de supprimer cet événement.',
+                    });
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-black shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Suppression...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Oui, Supprimer</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

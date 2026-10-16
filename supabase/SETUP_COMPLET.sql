@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     role user_role NOT NULL DEFAULT 'ORGANIZER',
     avatar_url TEXT,
     organization VARCHAR(255),
+    organization_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -429,8 +430,11 @@ USING (
 -- Exécuter ce script dans : Supabase Dashboard > SQL Editor > New query > Run
 -- ==============================================================================
 
--- 1. Nettoyage intégral de toutes les anciennes données de test / fictives
-TRUNCATE TABLE scans, tickets, orders, ticket_types, events CASCADE;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'scans') THEN
+        TRUNCATE TABLE scans, tickets, orders, ticket_types, events CASCADE;
+    END IF;
+END $$;
 
 -- 2. Suppression de toutes les anciennes politiques RLS (y compris récursion 42P17)
 DROP POLICY IF EXISTS "Organizers can read their team members" ON profiles;

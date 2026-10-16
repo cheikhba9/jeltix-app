@@ -92,18 +92,15 @@ function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T> {
         const { data: existingProfile } = await withTimeout(
           supabase
             .from('profiles')
-            .select('id, email, full_name, role, avatar_url, is_active, created_at')
+            .select('id, email, full_name, role, avatar_url, organization_id, is_active, created_at')
             .eq('email', cleanEmail)
             .maybeSingle(),
           1500
         ).catch(() => ({ data: null }));
 
-        let role: import('@/types').UserRole;
-        if (existingProfile?.role && existingProfile.role !== 'ORGANIZER') {
-          role = existingProfile.role as import('@/types').UserRole;
-        } else {
-          role = isAdmin(cleanEmail) ? 'SUPER_ADMIN' : 'ORGANIZER';
-        }
+        const role: import('@/types').UserRole = isAdmin(cleanEmail)
+          ? 'SUPER_ADMIN'
+          : ((existingProfile?.role || user.user_metadata?.role || 'ORGANIZER') as import('@/types').UserRole);
 
         const profile = await syncUserProfile(
           user.id,
@@ -111,6 +108,10 @@ function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T> {
           existingProfile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || cleanEmail.split('@')[0],
           role
         );
+
+        if (existingProfile?.organization_id) {
+          profile.organizationId = existingProfile.organization_id;
+        }
 
         setCurrentUser(profile);
         addUser(profile);
@@ -143,93 +144,135 @@ function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T> {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    try {
-      // 1. Tenter l'authentification Supabase avec un timeout strict de 1.5s
-      try {
-        const supabase = createClient();
-        if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-          if (mode === 'login') {
-            await withTimeout(supabase.auth.signInWithPassword({ email: cleanEmail, password }), 1500);
-          } else {
-            await withTimeout(
-              supabase.auth.signUp({
-                email: cleanEmail,
-                password,
-                options: {
-                  data: { full_name: fullName, role: 'ORGANIZER' },
-                },
-              }),
-              1500
-            );
-          }
-        }
-      } catch (cloudErr) {
-        console.warn('Mode résilient : Supabase inaccessible ou Gateway Timeout, connexion locale instantanée activée.');
-      }
+    if (!cleanEmail || !password) {
+      setErrorMsg('Veuillez renseigner votre email et mot de passe.');
+      setIsLoading(false);
+      return;
+    }
 
+    try {
+      const supabase = createClient();
       let activeUser: UserProfile;
 
       if (mode === 'register') {
-        // Enregistrement : attribution du rôle ORGANIZER (ou SUPER_ADMIN pour whitelist)
-        const assignedRole: UserRole = isSuperAdminEmail(cleanEmail) ? 'SUPER_ADMIN' : 'ORGANIZER';
+        // 1. Inscription Organisateur sécurisée avec auto-confirmation d'email
+        const regRes = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: cleanEmail,
+            password,
+            fullName: fullName.trim() || undefined,
+          }),
+        });
 
-        const generatedId = `usr-${Date.now()}`;
-        activeUser = {
-          id: generatedId,
+        const regData = await regRes.json();
+        if (!regRes.ok || !regData.success) {
+          setErrorMsg(regData.error || 'Erreur lors de la création du compte.');
+          setIsLoading(false);
+          return;
+        }
+
+        // 2. Ouvrir la session Supabase cliente
+        await supabase.auth.signInWithPassword({
           email: cleanEmail,
-          fullName: fullName || 'Organisateur Jël Tix',
-          role: assignedRole,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        };
-        try {
-          await withTimeout(syncUserProfile(generatedId, cleanEmail, activeUser.fullName, assignedRole), 1000).catch(() => {});
-        } catch {}
-        addUser(activeUser);
+          password,
+        });
+
+        activeUser = regData.user;
         setSuccessMsg(`Compte créé avec succès ! Bienvenue ${activeUser.fullName}.`);
       } else {
-        // Mode Connexion : identification du rôle et session instantanée
-        const isAdmin = isSuperAdminEmail(cleanEmail);
-        const existing = users.find((u: UserProfile) => u.email.toLowerCase() === cleanEmail);
-        
-        if (existing) {
-          activeUser = {
-            ...existing,
-            role: isAdmin ? 'SUPER_ADMIN' : existing.role,
-          };
-        } else {
-          activeUser = {
-            id: `usr-${Date.now()}`,
-            email: cleanEmail,
-            fullName: isAdmin ? 'Mamadou Cheikh Ba' : (cleanEmail.split('@')[0] || 'Organisateur'),
-            role: isAdmin ? 'SUPER_ADMIN' : 'ORGANIZER',
-            isActive: true,
-            createdAt: new Date().toISOString(),
-          };
-          try {
-            await withTimeout(syncUserProfile(activeUser.id, cleanEmail, activeUser.fullName, activeUser.role), 1000).catch(() => {});
-          } catch {}
-          addUser(activeUser);
+        // 1. Vérification préalable : validation email confirmée et récupération du rôle exact
+        let verifiedProfile: UserProfile | null = null;
+        try {
+          const verifyRes = await fetch('/api/auth/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: cleanEmail }),
+          });
+
+          if (verifyRes.ok) {
+            const vData = await verifyRes.json();
+            if (vData.success && vData.profile) {
+              verifiedProfile = vData.profile;
+            } else if (vData.isSuspended) {
+              setErrorMsg(vData.error || 'Ce compte a été suspendu.');
+              setIsLoading(false);
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn('Notice verify check:', e);
         }
+
+        // 2. Authentification par mot de passe Supabase
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
+
+        if (authError) {
+          const msg =
+            authError.message === 'Invalid login credentials'
+              ? 'Email ou mot de passe incorrect. Vérifiez vos identifiants.'
+              : authError.message === 'Email not confirmed'
+              ? 'Validation de l’adresse email requise. Veuillez réessayer.'
+              : authError.message || 'Identifiants invalides.';
+          setErrorMsg(msg);
+          setIsLoading(false);
+          return;
+        }
+
+        // 3. Charger le profil réel depuis Supabase
+        let dbProfile: any = null;
+        if (authData.user) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('id, email, full_name, role, organization_id, is_active')
+            .eq('id', authData.user.id)
+            .maybeSingle();
+          dbProfile = prof;
+        }
+
+        const isAdmin = isSuperAdminEmail(cleanEmail);
+        const role = isAdmin
+          ? 'SUPER_ADMIN'
+          : ((dbProfile?.role || verifiedProfile?.role || authData.user?.user_metadata?.role || 'ORGANIZER') as UserRole);
+
+        activeUser = {
+          id: dbProfile?.id || verifiedProfile?.id || authData.user?.id || `usr-${Date.now()}`,
+          email: cleanEmail,
+          fullName:
+            dbProfile?.full_name ||
+            verifiedProfile?.fullName ||
+            authData.user?.user_metadata?.full_name ||
+            cleanEmail.split('@')[0],
+          role,
+          organizationId: dbProfile?.organization_id || verifiedProfile?.organizationId || null,
+          isActive: dbProfile ? dbProfile.is_active !== false : true,
+          createdAt: dbProfile?.created_at || new Date().toISOString(),
+        };
+
         setSuccessMsg(
           `Ravi de vous revoir ${activeUser.fullName} ! Redirection vers ${
             activeUser.role === 'SELLER'
-              ? 'la Caisse'
+              ? 'le Guichet Caisse'
               : activeUser.role === 'CONTROLLER'
-              ? 'le Scanner'
+              ? 'le Scanner de Billets'
               : 'le Tableau de bord'
-          }...`
+          }…`
         );
       }
 
-      // Enregistrer immédiatement la session pour le client et le middleware
+      // 4. Enregistrer la session dans le store et les cookies
       setCurrentUser(activeUser);
+      addUser(activeUser);
       if (typeof document !== 'undefined') {
         document.cookie = 'jeltix_auth_session=true; path=/; max-age=604800; SameSite=Lax';
         localStorage.setItem('jeltix_current_user', JSON.stringify(activeUser));
       }
 
-      // Redirection instantanée selon le rôle RBAC
+      // 5. Redirection stricte selon le rôle RBAC
       let destination = redirectPath;
       if (activeUser.role === 'SELLER') {
         destination = '/sales/pos';
@@ -242,7 +285,7 @@ function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T> {
       setTimeout(() => {
         router.push(destination!);
         router.refresh();
-      }, 300);
+      }, 350);
     } catch (err: any) {
       setErrorMsg(err.message || 'Une erreur est survenue lors de l’opération.');
     } finally {

@@ -108,6 +108,11 @@ export async function POST(request: Request) {
       );
     }
 
+    function isValidUUID(str?: string | null): boolean {
+      if (!str) return false;
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+    }
+
     const cleanEmail = email.trim().toLowerCase();
     const cleanOrgEmail = (providedOrgEmail || '').trim().toLowerCase();
     const memberPassword = password && password.trim().length >= 6 ? password.trim() : 'Jeltix2026!';
@@ -115,7 +120,7 @@ export async function POST(request: Request) {
     const supabaseAdmin = getAdminClient();
 
     // 1. Identifier ou assurer le profil de l'organisateur dans la table profiles
-    let organizerProfileId = providedOrgId;
+    let organizerProfileId = isValidUUID(providedOrgId) ? providedOrgId : null;
 
     if (cleanOrgEmail) {
       // Chercher si l'organisateur a déjà son profil
@@ -125,7 +130,7 @@ export async function POST(request: Request) {
         .eq('email', cleanOrgEmail)
         .maybeSingle();
 
-      if (existingOrg) {
+      if (existingOrg && isValidUUID(existingOrg.id)) {
         organizerProfileId = existingOrg.id;
       } else {
         // Vérifier dans auth.users
@@ -134,7 +139,7 @@ export async function POST(request: Request) {
           (u) => u.email?.toLowerCase() === cleanOrgEmail
         );
 
-        const newOrgId = orgAuthUser?.id || providedOrgId || crypto.randomUUID();
+        const newOrgId = (orgAuthUser && isValidUUID(orgAuthUser.id)) ? orgAuthUser.id : crypto.randomUUID();
         const orgRole = isSuperAdminEmail(cleanOrgEmail) ? 'SUPER_ADMIN' : 'ORGANIZER';
 
         // Créer le profil manquant de l'organisateur
@@ -150,7 +155,7 @@ export async function POST(request: Request) {
           .select()
           .single();
 
-        if (createdOrg) {
+        if (createdOrg && isValidUUID(createdOrg.id)) {
           organizerProfileId = createdOrg.id;
         }
       }
@@ -171,6 +176,7 @@ export async function POST(request: Request) {
         user_metadata: {
           full_name: fullName,
           role,
+          organization_id: organizerProfileId,
         },
       });
 
@@ -183,6 +189,25 @@ export async function POST(request: Request) {
       }
 
       targetAuthUser = newUser.user;
+    } else {
+      // Utilisateur déjà existant : mettre à jour son mot de passe et confirmer son email immédiatement
+      const { data: updated, error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(
+        targetAuthUser.id,
+        {
+          password: memberPassword,
+          email_confirm: true,
+          user_metadata: {
+            full_name: fullName,
+            role,
+            organization_id: organizerProfileId,
+          },
+        }
+      );
+      if (updateErr) {
+        console.warn('Notice mise à jour authUser:', updateErr.message);
+      } else if (updated.user) {
+        targetAuthUser = updated.user;
+      }
     }
 
     // 3. Upsert du profil dans la table `profiles`

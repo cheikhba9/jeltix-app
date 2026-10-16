@@ -29,7 +29,7 @@ import {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { currentUser, setCurrentUser, orders, events } = useJeltixStore();
+  const { currentUser, setCurrentUser, orders, events, scans } = useJeltixStore();
 
   // Résolution synchrone immédiate du profil actif (évite tout écran blanc au rafraîchissement)
   const [cachedUser, setCachedUser] = useState<any>(null);
@@ -53,7 +53,7 @@ export default function DashboardPage() {
   const isSeller = role === 'SELLER';
 
   const [kpis, setKpis] = useState<PlatformKPIs | OrganizerKPIs | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // Redirection automatique UNIQUEMENT pour les contrôleurs qui n'ont accès qu'au scanner
   useEffect(() => {
@@ -62,7 +62,7 @@ export default function DashboardPage() {
     }
   }, [role, router]);
 
-  const loadKPIs = useCallback(async () => {
+  const loadKPIs = useCallback(async (isManual = false) => {
     const user = effectiveUser;
     const userRole = user?.role;
     const isUserAdmin = userRole === 'SUPER_ADMIN';
@@ -74,12 +74,14 @@ export default function DashboardPage() {
       return;
     }
 
-    setLoading(true);
+    if (isManual) setLoading(true);
     try {
       if (isUserAdmin) {
-        setKpis(await fetchPlatformKPIs());
+        const res = await fetchPlatformKPIs();
+        if (res) setKpis(res);
       } else if (isUserOrganizer && user?.id) {
-        setKpis(await fetchOrganizerKPIs(user.id));
+        const res = await fetchOrganizerKPIs(user.id);
+        if (res) setKpis(res);
       } else if (isUserSeller) {
         const orgId = user?.organizationId || user?.id;
         const myOrgEvents = events.filter((e) => e.organizerId === orgId);
@@ -108,7 +110,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [effectiveUser, orders, events]);
+  }, [effectiveUser?.id, effectiveUser?.role]);
 
   useEffect(() => {
     loadKPIs();
@@ -145,16 +147,24 @@ export default function DashboardPage() {
     ? orders.filter((o) => (o.sellerId && o.sellerId === currentUser?.id) || scopedEventIds.has(o.eventId))
     : [];
 
-  // Calcul local strictement scopé (0 si nouvel organisateur sans événement)
+  const scopedScans = isAdmin
+    ? scans
+    : isOrganizer
+    ? scans.filter((s) => scopedEventIds.has(s.eventId))
+    : [];
+
+  // Calcul local immédiatement disponible et statique
   const localActiveEvents = scopedEvents.filter((e) => e.status === 'PUBLISHED').length;
   const localTicketsSold = scopedEvents.reduce((sum, e) => sum + (e.soldCapacity || 0), 0);
   const localRevenue = scopedOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  const todayStartStr = new Date().toISOString().slice(0, 10);
+  const localScansToday = scopedScans.filter((s) => (s.scannedAt?.slice(0, 10) === todayStartStr || !s.scannedAt) && s.result === 'VALID').length;
 
-  // Pour un organisateur ou un vendeur, 0 doit strictement rester 0 (pas de fallback sur les données globales)
-  const totalRevenue = kpis?.totalRevenue ?? (isOrganizer || isSeller ? 0 : localRevenue);
-  const totalTicketsSold = kpis?.totalTicketsSold ?? (isOrganizer || isSeller ? 0 : localTicketsSold);
-  const activeEventsCount = kpis?.activeEventsCount ?? (isOrganizer || isSeller ? 0 : localActiveEvents);
-  const successfulScansToday = kpis?.successfulScansToday ?? 0;
+  // Données stables et constantes : pas de clignotement ni de shimmer
+  const totalRevenue = kpis?.totalRevenue !== undefined ? kpis.totalRevenue : localRevenue;
+  const totalTicketsSold = kpis?.totalTicketsSold !== undefined ? kpis.totalTicketsSold : localTicketsSold;
+  const activeEventsCount = kpis?.activeEventsCount !== undefined ? kpis.activeEventsCount : localActiveEvents;
+  const successfulScansToday = kpis?.successfulScansToday !== undefined ? kpis.successfulScansToday : localScansToday;
 
   // Dernières commandes strictement scopées
   const recentOrders = scopedOrders.slice(0, 5);
@@ -177,7 +187,7 @@ export default function DashboardPage() {
         </div>
 
         <button
-          onClick={loadKPIs}
+          onClick={() => loadKPIs(true)}
           disabled={loading}
           className="self-start sm:self-auto flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
@@ -222,33 +232,33 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 animate-fade-up stagger-2">
         <StatCard
           title="Revenu Total"
-          value={loading ? '—' : formatFCFA(totalRevenue)}
+          value={formatFCFA(totalRevenue)}
           unit="FCFA"
           iconName="payments"
           variant="primary"
-          loading={loading}
+          loading={false}
         />
         <StatCard
           title="Billets Vendus"
-          value={loading ? '—' : totalTicketsSold.toLocaleString('fr-FR')}
+          value={totalTicketsSold.toLocaleString('fr-FR')}
           iconName="confirmation_number"
           variant="tertiary"
-          loading={loading}
+          loading={false}
         />
         <StatCard
           title="Événements Actifs"
-          value={loading ? '—' : activeEventsCount}
+          value={activeEventsCount}
           iconName="event"
           variant="primary"
-          loading={loading}
+          loading={false}
         />
         <StatCard
           title="Scans Aujourd'hui"
-          value={loading ? '—' : successfulScansToday.toLocaleString('fr-FR')}
+          value={successfulScansToday.toLocaleString('fr-FR')}
           tag="Aujourd'hui"
           iconName="qr_code_scanner"
           variant="tertiary"
-          loading={loading}
+          loading={false}
         />
       </div>
 

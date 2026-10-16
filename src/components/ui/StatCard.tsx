@@ -79,14 +79,14 @@ export function StatCard({
         {title}
       </p>
 
-      {loading ? (
+      {loading && (value === undefined || value === null || value === '—') ? (
         <div className="h-8 w-32 rounded-lg skeleton-shimmer mt-1" />
       ) : (
         <h3
-          className="text-3xl font-black text-slate-900 dark:text-white tracking-tight relative z-10 animate-count-up"
+          className="text-3xl font-black text-slate-900 dark:text-white tracking-tight relative z-10"
           suppressHydrationWarning
         >
-          {value}
+          {value ?? 0}
           {unit && (
             <span className="text-sm text-slate-500 dark:text-white/70 font-bold ml-1" suppressHydrationWarning>
               {unit}

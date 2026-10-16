@@ -250,7 +250,31 @@ export async function fetchOrganizerKPIs(organizerId: string): Promise<Organizer
     .select('id, title, venue, sold_capacity, status')
     .eq('organizer_id', organizerId);
 
-  const orgEventIds = (orgEvents ?? []).map((e) => e.id);
+  let orgEventsList = orgEvents ?? [];
+
+  // Fallback local Mac Disk (/api/local-db) si Supabase est vide ou en cours de sync
+  if (orgEventsList.length === 0 && typeof window !== 'undefined') {
+    try {
+      const localRes = await fetch('/api/local-db');
+      if (localRes.ok) {
+        const json = await localRes.json();
+        if (json.exists && json.data && Array.isArray(json.data.events)) {
+          const matched = json.data.events.filter((e: any) => e.organizerId === organizerId);
+          if (matched.length > 0) {
+            orgEventsList = matched.map((e: any) => ({
+              id: e.id,
+              title: e.title,
+              venue: e.venue,
+              sold_capacity: Number(e.soldCapacity) || 0,
+              status: e.status || 'PUBLISHED',
+            }));
+          }
+        }
+      }
+    } catch {}
+  }
+
+  const orgEventIds = orgEventsList.map((e) => e.id);
 
   if (orgEventIds.length === 0) {
     return {
@@ -282,8 +306,38 @@ export async function fetchOrganizerKPIs(organizerId: string): Promise<Organizer
       .gte('scanned_at', todayStart.toISOString()),
   ]);
 
-  const orders = ordersRes.data ?? [];
-  const scans = scansRes.data ?? [];
+  let orders = ordersRes.data ?? [];
+  let scans = scansRes.data ?? [];
+
+  if (orders.length === 0 && typeof window !== 'undefined') {
+    try {
+      const localRes = await fetch('/api/local-db');
+      if (localRes.ok) {
+        const json = await localRes.json();
+        if (json.exists && json.data && Array.isArray(json.data.orders)) {
+          orders = json.data.orders
+            .filter((o: any) => orgEventIds.includes(o.eventId))
+            .map((o: any) => ({
+              id: o.id,
+              event_id: o.eventId,
+              total_amount: Number(o.totalAmount) || 0,
+              payment_method: o.paymentMethod || 'WAVE',
+              created_at: o.createdAt || new Date().toISOString(),
+              payment_status: o.paymentStatus || 'COMPLETED',
+            }));
+        }
+        if (json.exists && json.data && Array.isArray(json.data.scans)) {
+          scans = json.data.scans
+            .filter((s: any) => orgEventIds.includes(s.eventId))
+            .map((s: any) => ({
+              id: s.id,
+              result: s.result || 'VALID',
+              scanned_at: s.scannedAt || new Date().toISOString(),
+            }));
+        }
+      }
+    } catch {}
+  }
 
   let ticketCounts: { order_id: string }[] = [];
   if (orders.length > 0) {

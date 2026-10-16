@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useJeltixStore } from '@/lib/store/jeltix-store';
 import { formatFCFA, formatDateWithDay } from '@/lib/utils/format';

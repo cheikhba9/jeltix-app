@@ -12,6 +12,7 @@ import {
   OrderItem,
   ScanResultType,
   EventStatus,
+  TicketType,
 } from '@/types';
 import { generateTicketCode, generateOrderReference } from '../utils/format';
 import { createClient } from '@/lib/supabase/client';
@@ -24,7 +25,7 @@ const INITIAL_SCANS: ScanLog[] = [];
 // Uniquement les comptes administrateurs légitimes
 const INITIAL_USERS: UserProfile[] = [
   {
-    id: 'a0000000-0000-0000-0000-000000000001',
+    id: 'ceab3b6c-ed92-4e10-a71c-b23fd4d34c1c',
     fullName: 'Admin Jël Tix',
     email: 'admin@jeltix.sn',
     phone: '+221 77 000 00 01',
@@ -44,7 +45,7 @@ const INITIAL_USERS: UserProfile[] = [
     createdAt: '2026-01-01T00:00:00Z',
   },
   {
-    id: 'a0000000-0000-0000-0000-000000000003',
+    id: '56656a23-66f2-4c28-9191-c48e4c683c46',
     fullName: 'Mamadou Cheikh Ba',
     email: 'mamadoucheikhba9@gmail.com',
     phone: '+221 77 000 00 02',

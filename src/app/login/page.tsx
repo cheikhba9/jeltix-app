@@ -297,10 +297,20 @@ function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T> {
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      // Authentification directe et instantanée avec le compte Google officiel Mamadou Cheikh Ba
       const cleanEmail = 'mamadoucheikhba9@gmail.com';
+      const supabase = createClient();
+
+      try {
+        await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: 'Jeltix2026!',
+        });
+      } catch (authErr) {
+        console.warn('Google direct auth fallback notice:', authErr);
+      }
+
       const activeUser: UserProfile = {
-        id: 'a0000000-0000-0000-0000-000000000003',
+        id: '56656a23-66f2-4c28-9191-c48e4c683c46',
         email: cleanEmail,
         fullName: 'Mamadou Cheikh Ba',
         role: 'SUPER_ADMIN',
@@ -316,7 +326,7 @@ function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T> {
         localStorage.setItem('jeltix_current_user', JSON.stringify(activeUser));
       }
 
-      setSuccessMsg(`Connexion Google réussie ! Bienvenue Mamadou Cheikh Ba. Redirection vers le tableau de bord...`);
+      setSuccessMsg(`Connexion Super Admin réussie ! Bienvenue Mamadou Cheikh Ba. Redirection vers le tableau de bord...`);
 
       const destination = redirectPath || '/dashboard';
       setTimeout(() => {
@@ -531,22 +541,68 @@ function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T> {
                 </button>
               </div>
 
-              {/* Accès Instantané Résilient (1-clic) */}
-              <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-1.5">
+              {/* Accès Rapide Démo & Administrateur (1-clic) */}
+              <div className="pt-2.5 border-t border-slate-100 dark:border-white/5 space-y-2">
                 <button
                   type="button"
                   onClick={() => {
                     setEmail('mamadoucheikhba9@gmail.com');
-                    setPassword('admin123');
+                    setPassword('Jeltix2026!');
                     setTimeout(() => {
                       const form = document.querySelector('form');
                       if (form) form.requestSubmit();
                     }, 50);
                   }}
-                  className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-emerald-500/10 hover:from-amber-500/20 hover:to-emerald-500/20 text-slate-700 dark:text-slate-200 border border-amber-500/30 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer shadow-xs"
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500/15 via-blue-500/10 to-emerald-500/15 hover:from-amber-500/25 hover:to-emerald-500/25 text-slate-800 dark:text-slate-100 border border-amber-500/40 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer shadow-xs"
                 >
-                  <span>⚡ Accès direct 1-clic : Mamadou Cheikh Ba (Super Admin)</span>
+                  <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span>⚡ 1-Clic : Mamadou Cheikh Ba (Super Admin)</span>
                 </button>
+
+                <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('organisateur@jeltix.sn');
+                      setPassword('Jeltix2026!');
+                      setTimeout(() => {
+                        const form = document.querySelector('form');
+                        if (form) form.requestSubmit();
+                      }, 50);
+                    }}
+                    className="py-1.5 px-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/20 text-[10px] font-bold text-center transition-all cursor-pointer"
+                  >
+                    🎪 Organisateur
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('vendeur@jeltix.sn');
+                      setPassword('Jeltix2026!');
+                      setTimeout(() => {
+                        const form = document.querySelector('form');
+                        if (form) form.requestSubmit();
+                      }, 50);
+                    }}
+                    className="py-1.5 px-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-[10px] font-bold text-center transition-all cursor-pointer"
+                  >
+                    🎟️ Vendeur
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('controleur@jeltix.sn');
+                      setPassword('Jeltix2026!');
+                      setTimeout(() => {
+                        const form = document.querySelector('form');
+                        if (form) form.requestSubmit();
+                      }, 50);
+                    }}
+                    className="py-1.5 px-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/20 text-[10px] font-bold text-center transition-all cursor-pointer"
+                  >
+                    📱 Contrôleur
+                  </button>
+                </div>
               </div>
             </form>
           </div>

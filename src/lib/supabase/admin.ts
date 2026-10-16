@@ -219,7 +219,7 @@ export async function saveEventToSupabase(eventData: Partial<EventItem>): Promis
   try {
     let safeOrganizerId = isUUID(eventData.organizerId) ? eventData.organizerId : null;
     if (!safeOrganizerId) {
-      safeOrganizerId = 'a0000000-0000-0000-0000-000000000003'; // Super Admin Mamadou Cheikh Ba (seedé par SETUP_COMPLET.sql)
+      safeOrganizerId = '56656a23-66f2-4c28-9191-c48e4c683c46'; // Super Admin Mamadou Cheikh Ba
     }
 
     const payload: any = {
@@ -467,20 +467,21 @@ export async function saveOrderAndTicketsToSupabase(
     let safeOrderId = orderRow?.id;
     if (!safeOrderId) {
       const generatedOrderId = isUUID(order.id) ? order.id : crypto.randomUUID();
-      await supabase
-        .from('orders')
-        .insert({
-          id: generatedOrderId,
-          reference: order.reference || `CMD-JT-${Date.now()}`,
-          event_id: targetEventId,
-          customer_name: order.customerName || 'Client',
-          customer_phone: order.customerPhone || '+221 77 000 00 00',
-          total_amount: order.totalAmount || 0,
-          payment_method: order.paymentMethod || 'CASH',
-          payment_status: 'COMPLETED',
-          channel: order.channel || 'ONLINE',
-        })
-        .catch(() => {});
+      try {
+        await supabase
+          .from('orders')
+          .insert({
+            id: generatedOrderId,
+            reference: order.reference || `CMD-JT-${Date.now()}`,
+            event_id: targetEventId,
+            customer_name: order.customerName || 'Client',
+            customer_phone: order.customerPhone || '+221 77 000 00 00',
+            total_amount: order.totalAmount || 0,
+            payment_method: order.paymentMethod || 'CASH',
+            payment_status: 'COMPLETED',
+            channel: order.channel || 'ONLINE',
+          });
+      } catch (_) {}
       safeOrderId = generatedOrderId;
     }
 

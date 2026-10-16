@@ -435,15 +435,6 @@
       "createdAt": "2026-10-16T13:57:50.62+00:00"
     },
     {
-      "id": "8d3089e5-aae2-44d6-b8b8-9b6caada0cc4",
-      "fullName": "test Jel tix",
-      "email": "testjeltix@gmail.com",
-      "phone": "",
-      "role": "ORGANIZER",
-      "isActive": true,
-      "createdAt": "2026-10-16T16:07:28.104574+00:00"
-    },
-    {
       "id": "0343d896-76b4-4655-9bc5-1dac307713b7",
       "fullName": "Mamadou Cheikh Ba",
       "email": "mamadoucheikhba9@gmail.com",
@@ -452,6 +443,15 @@
       "organization": "Jël Tix SAS",
       "isActive": true,
       "createdAt": "2026-10-16T13:57:50.069+00:00"
+    },
+    {
+      "id": "8d3089e5-aae2-44d6-b8b8-9b6caada0cc4",
+      "fullName": "test Jel tix",
+      "email": "testjeltix@gmail.com",
+      "phone": "",
+      "role": "ORGANIZER",
+      "isActive": true,
+      "createdAt": "2026-10-16T16:07:28.104574+00:00"
     },
     {
       "id": "usr-1792167423983",

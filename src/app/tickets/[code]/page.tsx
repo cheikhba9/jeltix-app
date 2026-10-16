@@ -14,6 +14,17 @@ const QRCodeSVG = dynamic(() => import('qrcode.react').then((m) => m.QRCodeSVG),
   ssr: false,
 });
 
+const QRCodeCanvas = dynamic(() => import('qrcode.react').then((m) => m.QRCodeCanvas), {
+  ssr: false,
+});
+
+import {
+  buildWhatsAppTicketMessage,
+  buildWhatsAppUrl,
+  formatWhatsAppPhone,
+  generateTicketPhoto,
+} from '@/lib/utils/ticket-share';
+
 import {
   ArrowLeft,
   Printer,
@@ -33,6 +44,10 @@ import {
   Layers,
   ChevronRight,
   AlertTriangle,
+  Image as ImageIcon,
+  Phone,
+  Send,
+  Loader2,
 } from 'lucide-react';
 
 export default function TicketViewPage({
@@ -48,6 +63,11 @@ export default function TicketViewPage({
   const [copied, setCopied] = useState(false);
   const [liveSeconds, setLiveSeconds] = useState(0);
 
+  // États WhatsApp & Photo
+  const [whatsappPhone, setWhatsappPhone] = useState('');
+  const [isGeneratingPhoto, setIsGeneratingPhoto] = useState(false);
+  const [photoSuccess, setPhotoSuccess] = useState(false);
+
   // Synchronisation du code sélectionné si le paramètre change
   useEffect(() => {
     setSelectedCode(resolvedParams.code);
@@ -59,6 +79,13 @@ export default function TicketViewPage({
   }, [selectedCode, resolvedParams.code, getTicketByCode, tickets]);
 
   const event = ticket ? getEventBySlug(ticket.eventId) : null;
+
+  // Pré-remplir le numéro WhatsApp avec le téléphone du client s'il est vide
+  useEffect(() => {
+    if (ticket?.customerPhone && !whatsappPhone) {
+      setWhatsappPhone(ticket.customerPhone);
+    }
+  }, [ticket?.customerPhone, whatsappPhone]);
 
   // Billets compagnons de la même commande (achats groupés de 2, 3, 5 billets, etc.)
   const companionTickets = useMemo(() => {
@@ -102,16 +129,56 @@ export default function TicketViewPage({
 
   const isUsed = ticket.status === 'USED';
 
-  const whatsappShareUrl = () => {
-    const currentUrl = typeof window !== 'undefined' ? window.location.href : `https://jeltix.sn/tickets/${ticket.ticketCode}`;
-    const text = `🎟️ *Mon e-Billet Jël Tix*\n\n` +
-      `*Événement :* ${ticket.eventTitle}\n` +
-      `*Billet :* ${ticket.ticketTypeName}\n` +
-      `*Porteur :* ${ticket.customerName}\n` +
-      `*Code Unique :* ${ticket.ticketCode}\n` +
-      `*Porte d'accès :* ${ticket.gateRecommendation}\n\n` +
-      `👉 Consulter et présenter mon QR Code officiel :\n${currentUrl}`;
-    return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+  // URLs WhatsApp dynamiques et formatées
+  const currentTicketUrl = typeof window !== 'undefined' ? window.location.href : `https://jeltix.sn/tickets/${ticket.ticketCode}`;
+  const whatsappMsg = buildWhatsAppTicketMessage(ticket, event ?? null, currentTicketUrl);
+  const directWhatsAppUrl = buildWhatsAppUrl(whatsappPhone || ticket.customerPhone, whatsappMsg);
+  const generalShareWhatsAppUrl = buildWhatsAppUrl('', whatsappMsg);
+
+  // Téléchargement / Partage de la Photo HD du billet
+  const handleDownloadPhoto = async () => {
+    setIsGeneratingPhoto(true);
+    try {
+      const qrCanvas = document.getElementById(`ticket-qr-canvas-${ticket.ticketCode}`) as HTMLCanvasElement | null;
+      const dataUrl = await generateTicketPhoto(ticket, event ?? null, qrCanvas);
+
+      // Partage natif mobile si disponible (permet d'envoyer l'image directement dans WhatsApp)
+      if (typeof navigator !== 'undefined' && navigator.canShare) {
+        try {
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          const file = new File([blob], `Billet-JelTix-${ticket.ticketCode}.png`, { type: 'image/png' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: `Mon e-Billet Jël Tix - ${ticket.eventTitle}`,
+              text: `Voici mon e-billet sécurisé avec QR Code pour ${ticket.eventTitle} (#${ticket.ticketCode})`,
+              files: [file],
+            });
+            setIsGeneratingPhoto(false);
+            setPhotoSuccess(true);
+            setTimeout(() => setPhotoSuccess(false), 3000);
+            return;
+          }
+        } catch (e) {
+          console.warn('Native share fallback to direct download:', e);
+        }
+      }
+
+      // Téléchargement direct du fichier PNG dans la galerie
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `Billet-JelTix-${ticket.ticketCode}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setPhotoSuccess(true);
+      setTimeout(() => setPhotoSuccess(false), 3000);
+    } catch (err) {
+      console.error('Erreur génération photo du billet:', err);
+    } finally {
+      setIsGeneratingPhoto(false);
+    }
   };
 
   const handleShare = () => {
@@ -148,7 +215,7 @@ export default function TicketViewPage({
 
           <div className="flex flex-wrap items-center gap-2">
             <a
-              href={whatsappShareUrl()}
+              href={directWhatsAppUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="px-3.5 py-2 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-[#25D366]/20 transition-all cursor-pointer"
@@ -157,6 +224,21 @@ export default function TicketViewPage({
               <span className="material-symbols-outlined text-[17px]">chat</span>
               <span>WhatsApp</span>
             </a>
+
+            <button
+              type="button"
+              onClick={handleDownloadPhoto}
+              disabled={isGeneratingPhoto}
+              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold flex items-center gap-1.5 border border-white/10 transition-colors cursor-pointer text-white"
+              title="Télécharger l'image photo HD du billet"
+            >
+              {isGeneratingPhoto ? (
+                <Loader2 className="w-4 h-4 animate-spin text-[#4EED15]" />
+              ) : (
+                <ImageIcon className="w-4 h-4 text-[#4EED15]" />
+              )}
+              <span>{photoSuccess ? 'Photo enregistrée !' : 'Photo HD'}</span>
+            </button>
 
             <button
               onClick={handleShare}
@@ -444,28 +526,94 @@ export default function TicketViewPage({
           </div>
         </div>
 
-        {/* WhatsApp Callout Action */}
-        <div className="w-full mt-6 bg-[#25D366]/10 border border-[#25D366]/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-[#25D366] text-white flex items-center justify-center shrink-0 shadow-md shadow-[#25D366]/25">
-              <span className="material-symbols-outlined text-[24px]">chat</span>
+        {/* Hidden QRCodeCanvas for generating High-Definition Photo */}
+        <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', opacity: 0, pointerEvents: 'none' }}>
+          <QRCodeCanvas
+            id={`ticket-qr-canvas-${ticket.ticketCode}`}
+            value={ticket.ticketCode}
+            size={300}
+            level="H"
+            includeMargin={true}
+          />
+        </div>
+
+        {/* WhatsApp & Téléchargement Photo Haute Définition */}
+        <div className="w-full mt-6 bg-gradient-to-br from-[#072412] via-[#051A10] to-[#040D1C] border border-[#25D366]/40 rounded-3xl p-5 sm:p-7 shadow-2xl space-y-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-[#25D366] text-white flex items-center justify-center shrink-0 shadow-lg shadow-[#25D366]/30">
+                <span className="material-symbols-outlined text-[26px]">chat</span>
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-white">Recevoir ce Billet sur WhatsApp</h3>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-[#25D366]/20 text-[#25D366] px-2 py-0.5 rounded-full font-mono">
+                    Officiel
+                  </span>
+                </div>
+                <p className="text-xs text-white/70 mt-0.5">
+                  Recevez les détails complets (événement, heure, lieu, code) et la photo avec le QR Code scannable.
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-black text-white">Recevoir mon e-billet sur WhatsApp</p>
-              <p className="text-xs text-white/70">
-                Conservez votre lien officiel et votre QR code directement dans votre discussion WhatsApp.
-              </p>
-            </div>
+
+            <button
+              type="button"
+              onClick={handleDownloadPhoto}
+              disabled={isGeneratingPhoto}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+            >
+              {isGeneratingPhoto ? (
+                <Loader2 className="w-4 h-4 animate-spin text-[#4EED15]" />
+              ) : (
+                <ImageIcon className="w-4 h-4 text-[#4EED15]" />
+              )}
+              <span>{photoSuccess ? 'Photo Enregistrée ✓' : 'Télécharger Photo HD (.png)'}</span>
+            </button>
           </div>
-          <a
-            href={whatsappShareUrl()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] text-white text-xs font-black flex items-center justify-center gap-2 shadow-lg shadow-[#25D366]/25 transition-transform active:scale-95 shrink-0"
-          >
-            <span className="material-symbols-outlined text-[18px]">send</span>
-            <span>Envoyer sur WhatsApp</span>
-          </a>
+
+          {/* Formulaire Numéro WhatsApp personnalisé */}
+          <div className="space-y-2">
+            <label className="block text-[11px] font-bold text-white/80 font-mono uppercase tracking-wider">
+              Numéro de téléphone WhatsApp destinataire
+            </label>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="relative flex-1">
+                <Phone className="w-4 h-4 text-[#25D366] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="tel"
+                  value={whatsappPhone}
+                  onChange={(e) => setWhatsappPhone(e.target.value)}
+                  placeholder="Ex: +221 77 123 45 67"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-black/40 border border-[#25D366]/30 text-xs font-mono font-bold text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#25D366]"
+                />
+              </div>
+
+              <a
+                href={directWhatsAppUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 py-3 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] text-white text-xs font-black flex items-center justify-center gap-2 shadow-lg shadow-[#25D366]/30 transition-all active:scale-95 cursor-pointer shrink-0"
+              >
+                <Send className="w-4 h-4" />
+                <span>Envoyer sur mon WhatsApp</span>
+              </a>
+
+              <a
+                href={generalShareWhatsAppUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/90 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0"
+                title="Partager à un autre contact ou groupe"
+              >
+                <Share2 className="w-4 h-4" />
+                <span>Partager à un ami</span>
+              </a>
+            </div>
+            <p className="text-[10px] text-white/50 italic">
+              💡 Le message WhatsApp inclut automatiquement l'événement, l'heure, le lieu, le titulaire, le code unique et le lien sécurisé vers votre QR Code.
+            </p>
+          </div>
         </div>
 
         {/* Quick Simulator link for controllers */}

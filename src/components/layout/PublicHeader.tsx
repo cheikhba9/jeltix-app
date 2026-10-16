@@ -48,7 +48,7 @@ export function PublicHeader() {
         </nav>
 
         {/* Desktop Quick Actions & Theme Toggle */}
-        <div className="hidden sm:flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-3">
           {/* Light / Dark Mode Toggle Button */}
           <ThemeToggle />
 

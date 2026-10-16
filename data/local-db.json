@@ -193,6 +193,26 @@
   ],
   "tickets": [
     {
+      "id": "6388e4d8-d76f-4fbd-88e7-bf723f1622af",
+      "ticketCode": "JT-3794-E",
+      "orderId": "92e9f784-76b7-4f1f-ac25-31d99a39ff24",
+      "eventId": "4084953d-0a70-4e6e-b9d7-84a275168b7e",
+      "eventTitle": "Grand Concert Jël Tix & Festival Culturel",
+      "ticketTypeId": "14998e24-d3bd-4977-ad11-d1facb76abd1",
+      "ticketTypeName": "Pass VVIP Prestige",
+      "gateRecommendation": "Porte C - VIP",
+      "seatNumber": "Place 487",
+      "customerName": "bcv",
+      "customerPhone": "764027468",
+      "pricePaid": 30000,
+      "status": "USED",
+      "usedAt": "2026-10-16T16:13:36.5+00:00",
+      "usedGate": "Porte A - Entrée Principale",
+      "usedByController": "0343d896-76b4-4655-9bc5-1dac307713b7",
+      "qrData": "JELTIX:JT-3794-E:4084953d-0a70-4e6e-b9d7-84a275168b7e:VALID",
+      "createdAt": "2026-10-16T16:13:30.12191+00:00"
+    },
+    {
       "id": "a97195c2-6a31-475a-916b-466206f095b6",
       "ticketCode": "JT-1050-X",
       "orderId": "120224f8-ab21-4aad-89a7-d3271f485709",
@@ -250,6 +270,29 @@
     }
   ],
   "scans": [
+    {
+      "id": "43d65785-bab5-478b-86e3-572644a31f0a",
+      "ticketId": "6388e4d8-d76f-4fbd-88e7-bf723f1622af",
+      "ticketCode": "JT-3794-E",
+      "eventId": "4084953d-0a70-4e6e-b9d7-84a275168b7e",
+      "ticketTypeName": "Billet",
+      "gate": "Porte A - Entrée Principale",
+      "controllerName": "Contrôleur",
+      "result": "ALREADY_SCANNED",
+      "errorMessage": "Double passage détecté à Porte A - Entrée Principale",
+      "scannedAt": "2026-10-16T16:14:06.016386+00:00"
+    },
+    {
+      "id": "4a169a90-f82f-4675-bc0b-a810f944279f",
+      "ticketId": "6388e4d8-d76f-4fbd-88e7-bf723f1622af",
+      "ticketCode": "JT-3794-E",
+      "eventId": "4084953d-0a70-4e6e-b9d7-84a275168b7e",
+      "ticketTypeName": "Billet",
+      "gate": "Porte A - Entrée Principale",
+      "controllerName": "Contrôleur",
+      "result": "VALID",
+      "scannedAt": "2026-10-16T16:13:36.690999+00:00"
+    },
     {
       "id": "909948cd-ee93-42df-9dd6-3b10650bca3e",
       "ticketId": "",
@@ -323,16 +366,6 @@
   ],
   "users": [
     {
-      "id": "0343d896-76b4-4655-9bc5-1dac307713b7",
-      "fullName": "Mamadou Cheikh Ba",
-      "email": "mamadoucheikhba9@gmail.com",
-      "phone": "",
-      "role": "SUPER_ADMIN",
-      "organization": "Jël Tix SAS",
-      "isActive": true,
-      "createdAt": "2026-10-16T13:57:50.069+00:00"
-    },
-    {
       "id": "11841ae1-e68d-486e-a1d7-197b6837d844",
       "fullName": "Super Admin Jeltix",
       "email": "admin@jeltix.sn",
@@ -383,6 +416,15 @@
       "createdAt": "2026-10-16T13:57:53.203+00:00"
     },
     {
+      "id": "423252c8-59e7-4fba-9894-5a03f7cb76c4",
+      "fullName": "Mamadoucheikh Ba",
+      "email": "mcheikhba9@gmail.com",
+      "phone": "",
+      "role": "ORGANIZER",
+      "isActive": true,
+      "createdAt": "2026-10-16T15:55:16.536185+00:00"
+    },
+    {
       "id": "10656978-1aab-481a-a7a8-010f90924a08",
       "fullName": "Mamadou Cheikh",
       "email": "mcbfd9@gmail.com",
@@ -391,6 +433,43 @@
       "organization": "Jël Tix SAS",
       "isActive": true,
       "createdAt": "2026-10-16T13:57:50.62+00:00"
+    },
+    {
+      "id": "8d3089e5-aae2-44d6-b8b8-9b6caada0cc4",
+      "fullName": "test Jel tix",
+      "email": "testjeltix@gmail.com",
+      "phone": "",
+      "role": "ORGANIZER",
+      "isActive": true,
+      "createdAt": "2026-10-16T16:07:28.104574+00:00"
+    },
+    {
+      "id": "0343d896-76b4-4655-9bc5-1dac307713b7",
+      "fullName": "Mamadou Cheikh Ba",
+      "email": "mamadoucheikhba9@gmail.com",
+      "phone": "",
+      "role": "SUPER_ADMIN",
+      "organization": "Jël Tix SAS",
+      "isActive": true,
+      "createdAt": "2026-10-16T13:57:50.069+00:00"
+    },
+    {
+      "id": "usr-1792167423983",
+      "email": "admin@jeltix.sn",
+      "fullName": "Super Admin Jeltix",
+      "role": "SUPER_ADMIN",
+      "organizationId": null,
+      "isActive": true,
+      "createdAt": "2026-10-16T16:17:03.983Z"
+    },
+    {
+      "id": "usr-1792167255403",
+      "email": "organisateur@jeltix.sn",
+      "fullName": "Organisateur Jeltix",
+      "role": "ORGANIZER",
+      "organizationId": null,
+      "isActive": true,
+      "createdAt": "2026-10-16T16:14:15.403Z"
     },
     {
       "id": "a0000000-0000-0000-0000-000000000002",
@@ -500,6 +579,21 @@
     }
   ],
   "orders": [
+    {
+      "id": "92e9f784-76b7-4f1f-ac25-31d99a39ff24",
+      "reference": "CMD-JT-2026-4682",
+      "eventId": "4084953d-0a70-4e6e-b9d7-84a275168b7e",
+      "eventTitle": "Grand Concert Jël Tix & Festival Culturel",
+      "customerName": "bcv",
+      "customerPhone": "764027468",
+      "customerEmail": "",
+      "items": [],
+      "totalAmount": 30000,
+      "paymentMethod": "WAVE",
+      "paymentStatus": "COMPLETED",
+      "channel": "ONLINE",
+      "createdAt": "2026-10-16T16:13:29.864505+00:00"
+    },
     {
       "id": "120224f8-ab21-4aad-89a7-d3271f485709",
       "reference": "CMD-JT-2026-6882",

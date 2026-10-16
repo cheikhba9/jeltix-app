@@ -46,16 +46,21 @@ export default function LoginPage() {
 
   const handleLogout = useCallback(async () => {
     try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {}
+    try {
       const supabase = createClient();
       await supabase.auth.signOut();
     } catch (err) {
       console.warn('Signout error:', err);
     }
     setCurrentUser(null as any);
-    if (typeof document !== 'undefined') {
+    if (typeof window !== 'undefined') {
       document.cookie = 'jeltix_auth_session=; path=/; max-age=0; SameSite=Lax';
+      document.cookie = 'jeltix_user_profile=; path=/; max-age=0; SameSite=Lax';
       localStorage.removeItem('jeltix_current_user');
       localStorage.removeItem('jeltix_current_user_v2');
+      sessionStorage.clear();
     }
     setSuccessMsg('Vous avez été déconnecté avec succès.');
   }, [setCurrentUser]);

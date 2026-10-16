@@ -173,13 +173,17 @@ export async function fetchPlatformKPIs(): Promise<PlatformKPIs> {
     } catch {}
   }
 
-  const { data: ticketCounts } = await supabase
-    .from('tickets')
-    .select('order_id')
-    .in('order_id', orders.map((o) => o.id));
+  let ticketCounts: { order_id: string }[] = [];
+  if (orders.length > 0) {
+    const { data } = await supabase
+      .from('tickets')
+      .select('order_id')
+      .in('order_id', orders.map((o) => o.id));
+    ticketCounts = data ?? [];
+  }
 
   const ticketsPerOrder = new Map<string, number>();
-  for (const t of ticketCounts ?? []) {
+  for (const t of ticketCounts) {
     ticketsPerOrder.set(t.order_id, (ticketsPerOrder.get(t.order_id) ?? 0) + 1);
   }
 
@@ -281,13 +285,17 @@ export async function fetchOrganizerKPIs(organizerId: string): Promise<Organizer
   const orders = ordersRes.data ?? [];
   const scans = scansRes.data ?? [];
 
-  const { data: ticketCounts } = await supabase
-    .from('tickets')
-    .select('order_id')
-    .in('order_id', orders.map((o) => o.id));
+  let ticketCounts: { order_id: string }[] = [];
+  if (orders.length > 0) {
+    const { data } = await supabase
+      .from('tickets')
+      .select('order_id')
+      .in('order_id', orders.map((o) => o.id));
+    ticketCounts = data ?? [];
+  }
 
   const ticketsPerOrder = new Map<string, number>();
-  for (const t of ticketCounts ?? []) {
+  for (const t of ticketCounts) {
     ticketsPerOrder.set(t.order_id, (ticketsPerOrder.get(t.order_id) ?? 0) + 1);
   }
 

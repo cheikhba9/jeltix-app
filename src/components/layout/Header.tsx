@@ -219,19 +219,23 @@ export function Header({ onOpenMobileSidebar }: HeaderProps) {
   const handleLogout = async () => {
     setShowUserDropdown(false);
     try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {}
+    try {
       const supabase = createClient();
       await supabase.auth.signOut();
     } catch (err) {
       console.warn('Logout error:', err);
     }
     setCurrentUser(null as any);
-    if (typeof document !== 'undefined') {
+    if (typeof window !== 'undefined') {
       document.cookie = 'jeltix_auth_session=; path=/; max-age=0; SameSite=Lax';
+      document.cookie = 'jeltix_user_profile=; path=/; max-age=0; SameSite=Lax';
       localStorage.removeItem('jeltix_current_user');
       localStorage.removeItem('jeltix_current_user_v2');
+      sessionStorage.clear();
+      window.location.href = '/login?logout=true';
     }
-    router.push('/login?logout=true');
-    router.refresh();
   };
 
   const displayName = currentUser?.fullName || (currentUser?.email ? currentUser.email.split('@')[0] : 'Utilisateur');

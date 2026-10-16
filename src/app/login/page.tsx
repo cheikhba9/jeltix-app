@@ -488,20 +488,26 @@ function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T> {
               </button>
 
               {/* Social Platforms Separator */}
-              <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 pt-2 font-medium">
-                {mode === 'login' ? 'ou se connecter avec' : 'ou s’inscrire avec'}
-              </p>
+              <div className="relative my-3 pt-1">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200 dark:border-white/10" />
+                </div>
+                <div className="relative flex justify-center text-[10px] uppercase tracking-wider font-semibold">
+                  <span className="bg-white dark:bg-[#0E1A33] px-3 text-slate-400 dark:text-slate-500">
+                    {mode === 'login' ? 'ou continuer avec' : 'ou s’inscrire avec'}
+                  </span>
+                </div>
+              </div>
 
-              {/* Social Login Buttons (Google, Facebook, GitHub, LinkedIn) */}
-              <div className="flex items-center justify-center gap-3 pt-1">
-                {/* Google */}
+              {/* Unique Google Button */}
+              <div className="flex justify-center pt-0.5">
                 <button
                   type="button"
                   onClick={handleGoogleOAuth}
-                  className="w-9 h-9 rounded-xl border border-slate-200 dark:border-white/10 hover:border-blue-400 dark:hover:border-blue-400 flex items-center justify-center bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
-                  title="Se connecter avec Google"
+                  className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/25 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 flex items-center justify-center gap-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-2xs hover:shadow-xs transition-all active:scale-[0.99] cursor-pointer"
+                  title="Continuer avec Google"
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                     <path
                       fill="#4285F4"
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -519,100 +525,8 @@ function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T> {
                       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                     />
                   </svg>
+                  <span>Continuer avec Google</span>
                 </button>
-                {/* Facebook */}
-                <button
-                  type="button"
-                  onClick={() => alert('La connexion Facebook sera prochainement disponible.')}
-                  className="w-9 h-9 rounded-xl border border-slate-200 dark:border-white/10 hover:border-slate-400 dark:hover:border-white/30 flex items-center justify-center text-xs font-black text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer"
-                  title="Facebook"
-                >
-                  f
-                </button>
-                {/* GitHub */}
-                <button
-                  type="button"
-                  onClick={() => alert('La connexion GitHub sera prochainement disponible.')}
-                  className="w-9 h-9 rounded-xl border border-slate-200 dark:border-white/10 hover:border-slate-400 dark:hover:border-white/30 flex items-center justify-center text-xs font-black text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer"
-                  title="GitHub"
-                >
-                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-                  </svg>
-                </button>
-                {/* LinkedIn */}
-                <button
-                  type="button"
-                  onClick={() => alert('La connexion LinkedIn sera prochainement disponible.')}
-                  className="w-9 h-9 rounded-xl border border-slate-200 dark:border-white/10 hover:border-slate-400 dark:hover:border-white/30 flex items-center justify-center text-[10px] font-black text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer"
-                  title="LinkedIn"
-                >
-                  in
-                </button>
-              </div>
-
-              {/* Accès Rapide Démo & Administrateur (1-clic) */}
-              <div className="pt-2.5 border-t border-slate-100 dark:border-white/5 space-y-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('mamadoucheikhba9@gmail.com');
-                    setPassword('Jeltix2026!');
-                    setTimeout(() => {
-                      const form = document.querySelector('form');
-                      if (form) form.requestSubmit();
-                    }, 50);
-                  }}
-                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500/15 via-blue-500/10 to-emerald-500/15 hover:from-amber-500/25 hover:to-emerald-500/25 text-slate-800 dark:text-slate-100 border border-amber-500/40 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer shadow-xs"
-                >
-                  <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span>⚡ 1-Clic : Mamadou Cheikh Ba (Super Admin)</span>
-                </button>
-
-                <div className="grid grid-cols-3 gap-1.5 pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('organisateur@jeltix.sn');
-                      setPassword('Jeltix2026!');
-                      setTimeout(() => {
-                        const form = document.querySelector('form');
-                        if (form) form.requestSubmit();
-                      }, 50);
-                    }}
-                    className="py-1.5 px-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/20 text-[10px] font-bold text-center transition-all cursor-pointer"
-                  >
-                    🎪 Organisateur
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('vendeur@jeltix.sn');
-                      setPassword('Jeltix2026!');
-                      setTimeout(() => {
-                        const form = document.querySelector('form');
-                        if (form) form.requestSubmit();
-                      }, 50);
-                    }}
-                    className="py-1.5 px-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-[10px] font-bold text-center transition-all cursor-pointer"
-                  >
-                    🎟️ Vendeur
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('controleur@jeltix.sn');
-                      setPassword('Jeltix2026!');
-                      setTimeout(() => {
-                        const form = document.querySelector('form');
-                        if (form) form.requestSubmit();
-                      }, 50);
-                    }}
-                    className="py-1.5 px-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/20 text-[10px] font-bold text-center transition-all cursor-pointer"
-                  >
-                    📱 Contrôleur
-                  </button>
-                </div>
               </div>
             </form>
           </div>

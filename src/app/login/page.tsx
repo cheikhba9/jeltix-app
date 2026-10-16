@@ -287,10 +287,9 @@ function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T> {
         destination = getDefaultRouteForRole(activeUser.role);
       }
 
-      setTimeout(() => {
-        router.push(destination!);
-        router.refresh();
-      }, 350);
+      if (typeof window !== 'undefined') {
+        window.location.href = destination!;
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Une erreur est survenue lors de l’opération.');
     } finally {

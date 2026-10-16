@@ -94,16 +94,51 @@ export async function generateTicketPhoto(
   ctx.fillStyle = headerGrad;
   ctx.fillRect(20, 20, width - 40, 120);
 
-  // Marque Jël Tix
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = '900 36px sans-serif';
-  ctx.fillText('Jël', 50, 85);
-  ctx.fillStyle = '#4EED15';
-  ctx.fillText('Tix', 115, 85);
+  // Charger et dessiner le vrai logo officiel Jël Tix
+  const loadLogo = (): Promise<HTMLImageElement | null> => {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined') return resolve(null);
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = '/logo.png';
+    });
+  };
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-  ctx.font = 'italic bold 13px sans-serif';
-  ctx.fillText('Billetterie Officielle Sécurisée', 50, 112);
+  const logoImg = await loadLogo();
+  if (logoImg) {
+    // Conteneur blanc arrondi pour faire ressortir le logo officiel
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(40, 32, 95, 95, 18);
+    ctx.clip();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(40, 32, 95, 95);
+    ctx.drawImage(logoImg, 40, 32, 95, 95);
+    ctx.restore();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '900 36px sans-serif';
+    ctx.fillText('Jël', 150, 85);
+    ctx.fillStyle = '#4EED15';
+    ctx.fillText('Tix', 215, 85);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.font = 'italic bold 13px sans-serif';
+    ctx.fillText('Billetterie Officielle Sécurisée', 150, 112);
+  } else {
+    // Repli typographique élégant
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '900 36px sans-serif';
+    ctx.fillText('Jël', 50, 85);
+    ctx.fillStyle = '#4EED15';
+    ctx.fillText('Tix', 115, 85);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.font = 'italic bold 13px sans-serif';
+    ctx.fillText('Billetterie Officielle Sécurisée', 50, 112);
+  }
 
   // Badge ACTIF
   ctx.fillStyle = '#4EED15';

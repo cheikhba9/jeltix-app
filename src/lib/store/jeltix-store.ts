@@ -213,8 +213,7 @@ class JeltixStore {
     this.events = JSON.parse(JSON.stringify(INITIAL_EVENTS));
     this.tickets = JSON.parse(JSON.stringify(INITIAL_TICKETS));
     this.scans = JSON.parse(JSON.stringify(INITIAL_SCANS));
-    this.users = JSON.parse(JSON.stringify(INITIAL_USERS));
-    this.currentUser = this.users[0] || null;
+    this.currentUser = null;
 
     if (typeof window !== 'undefined') {
       try {
@@ -260,51 +259,21 @@ class JeltixStore {
       const savedScans = localStorage.getItem('jeltix_scans_v4');
       const savedUsers = localStorage.getItem('jeltix_users_v4');
       const savedOrders = localStorage.getItem('jeltix_orders_v4');
-      const savedCurrentUser =
-        localStorage.getItem('jeltix_current_user_v4') ||
-        localStorage.getItem('jeltix_current_user');
+      // Nettoyage des anciens préfixes contradictoires
+      localStorage.removeItem('jeltix_current_user_v4');
+      localStorage.removeItem('jeltix_current_user_v2');
 
-      if (savedEvents) {
-        try {
-          const parsed = JSON.parse(savedEvents);
-          if (Array.isArray(parsed)) this.events = parsed;
-        } catch {}
-      }
-      if (savedTickets) {
-        try {
-          const parsed = JSON.parse(savedTickets);
-          if (Array.isArray(parsed)) this.tickets = parsed;
-        } catch {}
-      }
-      if (savedScans) {
-        try {
-          const parsed = JSON.parse(savedScans);
-          if (Array.isArray(parsed)) this.scans = parsed;
-        } catch {}
-      }
-      if (savedUsers) {
-        try {
-          const parsed = JSON.parse(savedUsers);
-          if (Array.isArray(parsed) && parsed.length > 0) this.users = parsed;
-        } catch {}
-      }
-      if (savedOrders) {
-        try {
-          const parsed = JSON.parse(savedOrders);
-          if (Array.isArray(parsed)) this.orders = parsed;
-        } catch {}
-      }
+      const savedCurrentUser = localStorage.getItem('jeltix_current_user');
       if (savedCurrentUser) {
         try {
           this.currentUser = JSON.parse(savedCurrentUser);
         } catch {}
+      } else {
+        this.currentUser = null;
       }
 
       if (!this.users || this.users.length === 0) {
         this.users = JSON.parse(JSON.stringify(INITIAL_USERS));
-      }
-      if (!this.currentUser) {
-        this.currentUser = this.users[0] || null;
       }
     } catch (e) {
       console.warn('Erreur reloadFromLocalStorage:', e);
@@ -445,7 +414,9 @@ class JeltixStore {
       localStorage.setItem('jeltix_users_v4', JSON.stringify(this.users));
       localStorage.setItem('jeltix_orders_v4', JSON.stringify(this.orders));
       if (this.currentUser) {
-        localStorage.setItem('jeltix_current_user_v4', JSON.stringify(this.currentUser));
+        localStorage.setItem('jeltix_current_user', JSON.stringify(this.currentUser));
+      } else {
+        localStorage.removeItem('jeltix_current_user');
       }
       this.persistToDisk();
     }

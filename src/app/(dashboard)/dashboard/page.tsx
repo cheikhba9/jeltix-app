@@ -18,6 +18,7 @@ import {
   ShoppingBag,
   TrendingUp,
   Zap,
+  Sparkles,
 } from 'lucide-react';
 import {
   fetchPlatformKPIs,
@@ -28,8 +29,25 @@ import {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { currentUser, orders, events } = useJeltixStore();
-  const role = currentUser?.role;
+  const { currentUser, setCurrentUser, orders, events } = useJeltixStore();
+
+  // Résolution synchrone immédiate du profil actif (évite tout écran blanc au rafraîchissement)
+  const [cachedUser, setCachedUser] = useState<any>(null);
+  useEffect(() => {
+    if (!currentUser && typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('jeltix_current_user');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setCachedUser(parsed);
+          setCurrentUser(parsed);
+        }
+      } catch {}
+    }
+  }, [currentUser, setCurrentUser]);
+
+  const effectiveUser = currentUser || cachedUser;
+  const role = effectiveUser?.role;
   const isAdmin = role === 'SUPER_ADMIN';
   const isOrganizer = role === 'ORGANIZER';
   const isSeller = role === 'SELLER';
@@ -45,20 +63,29 @@ export default function DashboardPage() {
   }, [role, router]);
 
   const loadKPIs = useCallback(async () => {
-    if (!isAdmin && !isOrganizer && !isSeller) return;
+    const user = effectiveUser;
+    const userRole = user?.role;
+    const isUserAdmin = userRole === 'SUPER_ADMIN';
+    const isUserOrganizer = userRole === 'ORGANIZER';
+    const isUserSeller = userRole === 'SELLER';
+
+    if (!isUserAdmin && !isUserOrganizer && !isUserSeller) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      if (isAdmin) {
+      if (isUserAdmin) {
         setKpis(await fetchPlatformKPIs());
-      } else if (isOrganizer && currentUser?.id) {
-        setKpis(await fetchOrganizerKPIs(currentUser.id));
-      } else if (isSeller) {
-        // KPIs pour le Vendeur : ventes au guichet de son organisation
-        const orgId = currentUser?.organizationId || currentUser?.id;
+      } else if (isUserOrganizer && user?.id) {
+        setKpis(await fetchOrganizerKPIs(user.id));
+      } else if (isUserSeller) {
+        const orgId = user?.organizationId || user?.id;
         const myOrgEvents = events.filter((e) => e.organizerId === orgId);
         const myOrgEventIds = new Set(myOrgEvents.map((e) => e.id));
         const sellerOrders = orders.filter(
-          (o) => (currentUser?.id && o.sellerId === currentUser.id) || myOrgEventIds.has(o.eventId)
+          (o) => (user?.id && o.sellerId === user.id) || myOrgEventIds.has(o.eventId)
         );
         const totalRevenue = sellerOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
         const totalTicketsSold = myOrgEvents.reduce((sum, e) => sum + (e.soldCapacity || 0), 0);
@@ -81,7 +108,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, isOrganizer, isSeller, currentUser?.id, orders, events]);
+  }, [effectiveUser, orders, events]);
 
   useEffect(() => {
     loadKPIs();
@@ -103,9 +130,9 @@ export default function DashboardPage() {
   const scopedEvents = isAdmin
     ? events
     : isOrganizer
-    ? events.filter((e) => e.organizerId === currentUser?.id)
+    ? events.filter((e) => e.organizerId === effectiveUser?.id)
     : isSeller
-    ? events.filter((e) => e.organizerId === (currentUser?.organizationId || currentUser?.id))
+    ? events.filter((e) => e.organizerId === (effectiveUser?.organizationId || effectiveUser?.id))
     : [];
 
   const scopedEventIds = new Set(scopedEvents.map((e) => e.id));

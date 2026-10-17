@@ -3,7 +3,7 @@
 import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useJeltixStore } from '@/lib/store/jeltix-store';
-import { formatFCFA, formatDateFrench, formatDateWithDay } from '@/lib/utils/format';
+import { formatFCFA, formatDateFrench, formatDateWithDay, isEventClosedOrPast } from '@/lib/utils/format';
 import { PublicHeader } from '@/components/layout/PublicHeader';
 import { Footer } from '@/components/layout/Footer';
 import Link from 'next/link';
@@ -21,6 +21,7 @@ import {
   Minus,
   Sparkles,
   Share2,
+  Lock,
   Ticket as TicketIcon,
 } from 'lucide-react';
 
@@ -36,6 +37,7 @@ export default function PublicEventDetailPage({
 
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [copiedLink, setCopiedLink] = useState(false);
+  const isClosed = isEventClosedOrPast(event);
 
   if (!event) {
     if (events.length === 0) {
@@ -71,6 +73,7 @@ export default function PublicEventDetailPage({
   }
 
   const handleQtyChange = (ticketTypeId: string, delta: number) => {
+    if (isClosed) return;
     setQuantities((prev) => {
       const current = prev[ticketTypeId] || 0;
       const next = Math.max(0, Math.min(10, current + delta));
@@ -91,7 +94,7 @@ export default function PublicEventDetailPage({
   const hasItems = selectedItems.length > 0;
 
   const handleProceedToCheckout = () => {
-    if (!hasItems) return;
+    if (isClosed || !hasItems) return;
     if (typeof window !== 'undefined') {
       sessionStorage.setItem(
         'jeltix_checkout',
@@ -171,9 +174,16 @@ export default function PublicEventDetailPage({
                   <span className="inline-flex items-center px-3.5 py-1 bg-[#0038A8] text-white rounded-full font-black text-xs shadow-md">
                     {event.category}
                   </span>
-                  <span className="inline-flex items-center px-3.5 py-1 bg-[#4EED15] text-[#002D8C] rounded-full font-black text-xs shadow-md">
-                    ⚡ Billetterie Officielle Ouverte
-                  </span>
+                  {isClosed ? (
+                    <span className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-amber-500 text-black font-black text-xs rounded-full shadow-md border border-amber-300">
+                      <Lock className="w-3.5 h-3.5" />
+                      Événement Terminé • Ventes Clôturées
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-3.5 py-1 bg-[#4EED15] text-[#002D8C] rounded-full font-black text-xs shadow-md">
+                      ⚡ Billetterie Officielle Ouverte
+                    </span>
+                  )}
                 </div>
 
                 <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight drop-shadow-lg leading-tight">
@@ -216,9 +226,28 @@ export default function PublicEventDetailPage({
                     <span>Sélectionnez vos Billets</span>
                   </h2>
                   <p className="text-xs text-on-surface-variant mt-0.5">
-                    Choisissez votre zone de stade ou espace réservé. Maximum 10 billets par commande.
+                    {isClosed
+                      ? "Cet événement est passé ou sa billetterie est désormais fermée."
+                      : "Choisissez votre zone de stade ou espace réservé. Maximum 10 billets par commande."}
                   </p>
                 </div>
+
+                {/* Banner Alerte Visible Événement Terminé */}
+                {isClosed && (
+                  <div className="p-5 sm:p-6 rounded-3xl bg-amber-500/15 border-2 border-amber-500 text-amber-950 dark:text-amber-100 flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-lg">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500 text-black flex items-center justify-center shrink-0 font-black shadow-md">
+                      <Lock className="w-6 h-6 text-black" />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-base sm:text-lg font-black tracking-tight text-amber-950 dark:text-amber-100 uppercase">
+                        Événement Terminé • Ventes de Billets Clôturées
+                      </h3>
+                      <p className="text-xs text-amber-900/90 dark:text-amber-200/90 leading-relaxed font-medium">
+                        La date de cet événement est passée ou la billetterie a été clôturée par l’organisateur. L'achat de nouveaux billets n'est plus disponible.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {event.ticketTypes.map((tt) => {
@@ -229,7 +258,9 @@ export default function PublicEventDetailPage({
                       <div
                         key={tt.id}
                         className={`bg-surface-container rounded-3xl p-6 border transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${
-                          qty > 0
+                          isClosed
+                            ? 'opacity-85 border-outline-variant/30 bg-surface-container-low'
+                            : qty > 0
                             ? 'border-primary shadow-md bg-[#0038A8]/5 dark:bg-[#0038A8]/20'
                             : 'border-outline-variant/30 hover:border-primary/50'
                         }`}
@@ -239,11 +270,15 @@ export default function PublicEventDetailPage({
                             <span className="text-[10px] font-black uppercase tracking-wider bg-surface text-primary px-2.5 py-0.5 rounded-full border border-outline-variant/30 font-mono">
                               {tt.badge || 'Accès Standard'}
                             </span>
-                            {isSoldOut && (
+                            {isClosed ? (
+                              <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-700 dark:text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-500/30">
+                                Clôturé
+                              </span>
+                            ) : isSoldOut ? (
                               <span className="text-[10px] font-black uppercase tracking-wider bg-error-container text-error px-2.5 py-0.5 rounded-full">
                                 Épuisé
                               </span>
-                            )}
+                            ) : null}
                           </div>
                           <h3 className="text-lg font-black text-on-surface">{tt.name}</h3>
                           <p className="text-xs text-on-surface-variant leading-relaxed">{tt.description}</p>
@@ -253,30 +288,37 @@ export default function PublicEventDetailPage({
                           </p>
                         </div>
 
-                        {/* Quantity Counter */}
-                        <div className="flex items-center gap-2 bg-surface rounded-2xl p-1.5 border border-outline-variant/30 shadow-xs shrink-0 w-full sm:w-auto justify-between sm:justify-start">
-                          <button
-                            type="button"
-                            disabled={qty === 0 || isSoldOut}
-                            onClick={() => handleQtyChange(tt.id, -1)}
-                            className="w-10 h-10 rounded-xl bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface font-black disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
+                        {/* Quantity Counter or Locked badge */}
+                        {isClosed ? (
+                          <div className="px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 font-extrabold text-xs flex items-center gap-2 shrink-0">
+                            <Lock className="w-3.5 h-3.5" />
+                            <span>Ventes closes</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 bg-surface rounded-2xl p-1.5 border border-outline-variant/30 shadow-xs shrink-0 w-full sm:w-auto justify-between sm:justify-start">
+                            <button
+                              type="button"
+                              disabled={qty === 0 || isSoldOut}
+                              onClick={() => handleQtyChange(tt.id, -1)}
+                              className="w-10 h-10 rounded-xl bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface font-black disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
 
-                          <span className="w-10 text-center font-black text-base text-on-surface font-mono">
-                            {qty}
-                          </span>
+                            <span className="w-10 text-center font-black text-base text-on-surface font-mono">
+                              {qty}
+                            </span>
 
-                          <button
-                            type="button"
-                            disabled={qty >= 10 || isSoldOut}
-                            onClick={() => handleQtyChange(tt.id, 1)}
-                            className="w-10 h-10 rounded-xl bg-primary text-on-primary hover:bg-primary-hover flex items-center justify-center font-black disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-xs"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </div>
+                            <button
+                              type="button"
+                              disabled={qty >= 10 || isSoldOut}
+                              onClick={() => handleQtyChange(tt.id, 1)}
+                              className="w-10 h-10 rounded-xl bg-primary text-on-primary hover:bg-primary-hover flex items-center justify-center font-black disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-xs"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -317,11 +359,32 @@ export default function PublicEventDetailPage({
                 <div className="border-b border-outline-variant/20 pb-3">
                   <h3 className="text-lg font-black text-on-surface">Récapitulatif de Commande</h3>
                   <p className="text-xs text-on-surface-variant font-mono">
-                    {totalQuantity} billet(s) sélectionné(s)
+                    {isClosed ? 'Billetterie fermée' : `${totalQuantity} billet(s) sélectionné(s)`}
                   </p>
                 </div>
 
-                {selectedItems.length === 0 ? (
+                {isClosed ? (
+                  <div className="space-y-3 pt-2">
+                    <div className="p-4 rounded-2xl bg-amber-500/15 border-2 border-amber-500 text-amber-950 dark:text-amber-100 text-center space-y-1">
+                      <p className="font-extrabold text-xs uppercase tracking-wide flex items-center justify-center gap-1.5">
+                        <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <span>Ventes Clôturées</span>
+                      </p>
+                      <p className="text-[11px] text-amber-900/80 dark:text-amber-200/80 font-medium">
+                        L'événement est terminé. Aucun nouveau billet ne peut être acheté.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full py-4 rounded-2xl bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-white/40 font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-not-allowed border border-slate-300 dark:border-white/10"
+                    >
+                      <Lock className="w-4 h-4" />
+                      <span>Événement Terminé</span>
+                    </button>
+                  </div>
+                ) : selectedItems.length === 0 ? (
                   <div className="py-8 text-center text-on-surface-variant text-xs space-y-2">
                     <p className="font-semibold">Votre sélection est vide.</p>
                     <p className="text-[11px]">Ajoutez au moins un billet pour continuer vers le paiement Wave / Orange Money.</p>

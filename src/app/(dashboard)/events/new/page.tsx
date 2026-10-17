@@ -53,6 +53,7 @@ export default function NewEventPage() {
   const [venue, setVenue] = useState('');
   const [locationDetails, setLocationDetails] = useState('');
   const [startDate, setStartDate] = useState('2026-11-20');
+  const [endDate, setEndDate] = useState('');
   const [timeString, setTimeString] = useState('18:00 UTC');
   const [bannerImage, setBannerImage] = useState(
     'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80'
@@ -156,6 +157,16 @@ export default function NewEventPage() {
       }
     } catch {}
 
+    let parsedEndDateStr: string | undefined = undefined;
+    if (endDate) {
+      try {
+        const ed = new Date(endDate);
+        if (!isNaN(ed.getTime())) {
+          parsedEndDateStr = ed.toISOString();
+        }
+      } catch {}
+    }
+
     const eventPayload = {
       slug,
       title,
@@ -163,6 +174,7 @@ export default function NewEventPage() {
       venue,
       locationDetails: locationDetails || 'Dakar, Sénégal',
       startDate: parsedDateStr,
+      endDate: parsedEndDateStr,
       timeString: timeString || '18:00 UTC',
       bannerImage,
       description: description || `Événement majeur organisé au ${venue}.`,
@@ -302,7 +314,7 @@ export default function NewEventPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-bold text-on-surface mb-1">
                 Date de l'Événement *
@@ -312,6 +324,18 @@ export default function NewEventPage() {
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-outline-variant/40 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-on-surface mb-1">
+                Date Fin / Clôture Ventes (Optionnelle)
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-outline-variant/40 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>

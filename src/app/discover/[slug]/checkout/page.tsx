@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useJeltixStore } from '@/lib/store/jeltix-store';
-import { formatFCFA } from '@/lib/utils/format';
+import { formatFCFA, isEventClosedOrPast } from '@/lib/utils/format';
 import { playSuccessBeep } from '@/lib/audio/sound-effects';
 import { PublicHeader } from '@/components/layout/PublicHeader';
 import { Footer } from '@/components/layout/Footer';
@@ -87,9 +87,44 @@ export default function CheckoutPage({
     );
   }
 
+  if (isEventClosedOrPast(event)) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <PublicHeader />
+        <div className="flex-1 max-w-lg mx-auto px-4 py-16 flex flex-col items-center justify-center text-center">
+          <div className="w-16 h-16 rounded-3xl bg-amber-500/20 border-2 border-amber-500 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-5 shadow-lg">
+            <Lock className="w-8 h-8" />
+          </div>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500 text-black font-black text-xs uppercase font-mono tracking-wider mb-3">
+            Billetterie Clôturée
+          </span>
+          <h1 className="text-2xl font-black text-on-surface mb-2">
+            Cet événement est terminé
+          </h1>
+          <p className="text-xs sm:text-sm text-on-surface-variant max-w-md mb-6 leading-relaxed">
+            La vente de billets en ligne pour <strong className="text-on-surface font-black">"{event.title}"</strong> est désormais fermée car l'événement est passé ou a été clôturé par son organisateur.
+          </p>
+          <Link
+            href={`/discover/${event.slug}`}
+            className="px-6 py-3 rounded-2xl bg-primary text-on-primary text-xs font-bold inline-flex items-center gap-2 shadow-md hover:bg-primary-hover transition-transform active:scale-95"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Retourner à la fiche de l'événement</span>
+          </Link>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError(null);
+
+    if (isEventClosedOrPast(event)) {
+      setValidationError("Cet événement est terminé. Les achats ne sont plus possibles.");
+      return;
+    }
 
     // 1. Rate Limiting Check (Max 5 attempts per minute per phone)
     const rateCheck = checkRateLimit(`checkout_${customerPhone.replace(/\s+/g, '')}`, 5, 60000);

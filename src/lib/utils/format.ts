@@ -61,3 +61,51 @@ export function generateOrderReference(): string {
   const rand = Math.floor(1000 + Math.random() * 9000);
   return `CMD-JT-${year}-${rand}`;
 }
+
+/**
+ * Détermine si un événement est terminé ou clôturé :
+ * 1. Statut manuellement mis à 'CLOSED'
+ * 2. Date de fin 'endDate' dépassée
+ * 3. Date de début 'startDate' + heure dépassée de plus de 4 heures
+ */
+export function isEventClosedOrPast(event: {
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+  timeString?: string;
+} | null | undefined): boolean {
+  if (!event) return false;
+  if (event.status === 'CLOSED') return true;
+
+  const now = Date.now();
+
+  // 1. Vérification de la date de fin explicite
+  if (event.endDate) {
+    const end = new Date(event.endDate).getTime();
+    if (!isNaN(end) && now > end) {
+      return true;
+    }
+  }
+
+  // 2. Vérification de la date de début + durée par défaut (4h)
+  if (event.startDate) {
+    const start = new Date(event.startDate);
+    if (!isNaN(start.getTime())) {
+      // Si timeString contient une heure (ex: "18:00" ou "20:30 UTC") et start est à minuit
+      if (event.timeString && start.getHours() === 0 && start.getMinutes() === 0) {
+        const timeMatch = event.timeString.match(/(\d{1,2}):(\d{2})/);
+        if (timeMatch) {
+          start.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), 0, 0);
+        }
+      }
+      // On considère l'événement clôturé 4 heures après le coup d'envoi
+      const eventEndTime = start.getTime() + 4 * 60 * 60 * 1000;
+      if (now > eventEndTime) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+

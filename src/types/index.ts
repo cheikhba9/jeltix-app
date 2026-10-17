@@ -57,6 +57,7 @@ export interface EventItem {
   venue: string;
   locationDetails: string;
   startDate: string; // ISO string
+  endDate?: string; // ISO string
   timeString: string; // e.g. "18:00 UTC"
   bannerImage: string;
   description: string;

@@ -14,7 +14,7 @@ import {
   EventStatus,
   TicketType,
 } from '@/types';
-import { generateTicketCode, generateOrderReference } from '../utils/format';
+import { generateTicketCode, generateOrderReference, isEventClosedOrPast } from '../utils/format';
 import { createClient } from '@/lib/supabase/client';
 
 // ZERO MOCK DATA - Prêt pour les données réelles
@@ -95,6 +95,7 @@ function mapSupabaseEventToModel(record: any): EventItem {
     venue: record.venue || '',
     locationDetails: record.location_details || '',
     startDate: record.start_date || new Date().toISOString(),
+    endDate: record.end_date || undefined,
     timeString:
       record.time_string ||
       (record.start_date
@@ -493,6 +494,9 @@ class JeltixStore {
   }): { order: Order; generatedTickets: Ticket[] } {
     const event = this.events.find((e) => e.id === params.eventId || e.slug === params.eventId);
     if (!event) throw new Error('Événement introuvable');
+    if (isEventClosedOrPast(event)) {
+      throw new Error("Cet événement est terminé ou sa billetterie est clôturée. La commande ne peut être acceptée.");
+    }
 
     const totalAmount = params.items.reduce((sum, it) => sum + it.subtotal, 0);
     const orderRef = generateOrderReference();

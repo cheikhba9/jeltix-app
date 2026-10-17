@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useJeltixStore } from '@/lib/store/jeltix-store';
-import { formatFCFA, formatDateWithDay } from '@/lib/utils/format';
+import { formatFCFA, formatDateWithDay, isEventClosedOrPast } from '@/lib/utils/format';
 import { playCashRegisterSound, playSuccessBeep } from '@/lib/audio/sound-effects';
 import { PaymentMethod, Ticket } from '@/types';
 
@@ -79,6 +79,7 @@ export default function POSPage() {
   }, [publishedEvents, selectedEventId]);
 
   const currentEvent = publishedEvents.find((e) => e.id === selectedEventId) || publishedEvents[0];
+  const isCurrentEventClosed = isEventClosedOrPast(currentEvent);
 
   const [cart, setCart] = useState<Record<string, CartItem>>({});
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('CASH');
@@ -112,6 +113,15 @@ export default function POSPage() {
   }
 
   const addToCart = (ticketTypeId: string, name: string, price: number) => {
+    if (isCurrentEventClosed) {
+      addToast({
+        type: 'error',
+        title: 'Événement Clôturé',
+        message: 'Cet événement est terminé. Impossible d\'ajouter des billets au panier.',
+      });
+      return;
+    }
+
     setCart((prev) => {
       const existing = prev[ticketTypeId] || { ticketTypeId, name, price, qty: 0 };
       return {
@@ -163,7 +173,16 @@ export default function POSPage() {
       : 0;
 
   const handleCheckout = () => {
-    if (totalAmount === 0 || !currentEvent) return;
+    if (totalAmount === 0 || !currentEvent || isCurrentEventClosed) {
+      if (isCurrentEventClosed) {
+        addToast({
+          type: 'error',
+          title: 'Encaissement bloqué',
+          message: 'Cet événement est terminé ou clôturé. La vente est impossible.',
+        });
+      }
+      return;
+    }
 
     const items = Object.values(cart)
       .filter((item) => item.qty > 0)
@@ -237,11 +256,15 @@ export default function POSPage() {
                 }}
                 className="w-full sm:w-72 bg-surface text-on-surface text-xs font-bold py-2.5 px-3 rounded-xl border border-outline-variant/40 shadow-xs focus:ring-2 focus:ring-[#0038A8] outline-none cursor-pointer"
               >
-                {publishedEvents.map((evt) => (
-                  <option key={evt.id} value={evt.id}>
-                    {evt.title.length > 38 ? evt.title.substring(0, 38) + '...' : evt.title}
-                  </option>
-                ))}
+                {publishedEvents.map((evt) => {
+                  const closed = isEventClosedOrPast(evt);
+                  return (
+                    <option key={evt.id} value={evt.id}>
+                      {evt.title.length > 30 ? evt.title.substring(0, 30) + '...' : evt.title}
+                      {closed ? ' 🔒 [TERMINÉ]' : ''}
+                    </option>
+                  );
+                })}
               </select>
             ) : (
               <span className="text-xs text-amber-600 dark:text-amber-400 font-bold">
@@ -258,26 +281,42 @@ export default function POSPage() {
         <div className="lg:col-span-7 flex flex-col gap-6">
           {/* Selected Event Card Banner */}
           {currentEvent && (
-            <div className="bg-gradient-to-r from-[#002D8C] to-[#0D52D6] rounded-3xl p-5 text-white shadow-md relative overflow-hidden">
-              <div className="absolute right-0 top-0 w-64 h-full bg-white/5 blur-xl pointer-events-none" />
-              <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider bg-[#4EED15] text-[#002D8C] px-2.5 py-0.5 rounded-full font-mono">
-                    {currentEvent.category}
-                  </span>
-                  <h2 className="text-lg sm:text-xl font-black mt-2 leading-tight">
-                    {currentEvent.title}
-                  </h2>
-                  <p className="text-xs text-white/80 mt-1 flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-[#4EED15]" />
-                    <span>{currentEvent.venue} ({currentEvent.locationDetails})</span>
-                  </p>
+            <div className="space-y-3">
+              {isCurrentEventClosed && (
+                <div className="p-4 rounded-2xl bg-amber-500/20 border-2 border-amber-500 text-amber-950 dark:text-amber-100 flex items-center gap-3 shadow-md">
+                  <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <div className="text-xs">
+                    <p className="font-extrabold uppercase tracking-wide">
+                      Événement Terminé • Ventes Clôturées
+                    </p>
+                    <p className="text-[11px] text-amber-900/90 dark:text-amber-200/90 font-medium">
+                      Cet événement est passé ou sa billetterie est fermée. Tout encaissement au guichet est bloqué.
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right shrink-0 bg-white/10 p-3 rounded-2xl border border-white/15">
-                  <p className="text-[10px] font-mono text-white/70 uppercase">Jauge Vendue</p>
-                  <p className="text-base font-black text-[#4EED15]">
-                    {currentEvent.soldCapacity.toLocaleString('fr-FR')} / {currentEvent.totalCapacity.toLocaleString('fr-FR')}
-                  </p>
+              )}
+
+              <div className="bg-gradient-to-r from-[#002D8C] to-[#0D52D6] rounded-3xl p-5 text-white shadow-md relative overflow-hidden">
+                <div className="absolute right-0 top-0 w-64 h-full bg-white/5 blur-xl pointer-events-none" />
+                <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-[#4EED15] text-[#002D8C] px-2.5 py-0.5 rounded-full font-mono">
+                      {currentEvent.category}
+                    </span>
+                    <h2 className="text-lg sm:text-xl font-black mt-2 leading-tight">
+                      {currentEvent.title}
+                    </h2>
+                    <p className="text-xs text-white/80 mt-1 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-[#4EED15]" />
+                      <span>{currentEvent.venue} ({currentEvent.locationDetails})</span>
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0 bg-white/10 p-3 rounded-2xl border border-white/15">
+                    <p className="text-[10px] font-mono text-white/70 uppercase">Jauge Vendue</p>
+                    <p className="text-base font-black text-[#4EED15]">
+                      {currentEvent.soldCapacity.toLocaleString('fr-FR')} / {currentEvent.totalCapacity.toLocaleString('fr-FR')}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -540,16 +579,27 @@ export default function POSPage() {
 
               <button
                 type="button"
-                disabled={totalAmount === 0}
+                disabled={totalAmount === 0 || isCurrentEventClosed}
                 onClick={handleCheckout}
                 className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl transition-transform active:scale-95 cursor-pointer ${
-                  totalAmount > 0
+                  isCurrentEventClosed
+                    ? 'bg-amber-500/20 border-2 border-amber-500 text-amber-800 dark:text-amber-300 cursor-not-allowed'
+                    : totalAmount > 0
                     ? 'bg-gradient-to-r from-[#2CA808] to-[#4EED15] text-[#002D8C] hover:opacity-95'
                     : 'bg-surface-container-highest text-on-surface-variant/40 cursor-not-allowed'
                 }`}
               >
-                <CheckCircle2 className="w-5 h-5" />
-                <span>Valider la Vente & Imprimer Reçu</span>
+                {isCurrentEventClosed ? (
+                  <>
+                    <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    <span>Événement Terminé (Vente Bloquée)</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span>Valider la Vente & Imprimer Reçu</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

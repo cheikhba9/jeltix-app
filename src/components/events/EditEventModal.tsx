@@ -44,6 +44,9 @@ export function EditEventModal({ event, onClose, onSave }: EditEventModalProps) 
   const [startDate, setStartDate] = useState(
     event.startDate ? event.startDate.substring(0, 10) : new Date().toISOString().substring(0, 10)
   );
+  const [endDate, setEndDate] = useState(
+    event.endDate ? event.endDate.substring(0, 10) : ''
+  );
   const [timeString, setTimeString] = useState(event.timeString || '18:00 UTC');
   const [bannerImage, setBannerImage] = useState(
     event.bannerImage || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80'
@@ -135,6 +138,7 @@ export function EditEventModal({ event, onClose, onSave }: EditEventModalProps) 
         venue: venue.trim(),
         locationDetails: locationDetails.trim(),
         startDate: new Date(startDate).toISOString(),
+        endDate: endDate ? new Date(endDate).toISOString() : undefined,
         timeString: timeString.trim(),
         bannerImage: bannerImage.trim(),
         description: description.trim(),
@@ -272,15 +276,28 @@ export function EditEventModal({ event, onClose, onSave }: EditEventModalProps) 
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-white/80 mb-1">
-                  Date de l'événement
+                  Date de début *
                 </label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-white/80 mb-1">
+                  Date fin / Clôture (Optionnelle)
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>

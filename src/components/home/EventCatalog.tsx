@@ -3,9 +3,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Calendar, MapPin, ChevronRight } from 'lucide-react';
+import { Calendar, MapPin, ChevronRight, Lock } from 'lucide-react';
 import { useJeltixStore } from '@/lib/store/jeltix-store';
-import { formatFCFA, formatDateFrench } from '@/lib/utils/format';
+import { formatFCFA, formatDateFrench, isEventClosedOrPast } from '@/lib/utils/format';
 
 const CATEGORIES = [
   { id: 'all', label: 'Tous les événements', icon: '✨' },
@@ -107,11 +107,14 @@ export function EventCatalog() {
             const totalCap = evt.totalCapacity || 1;
             const soldCap = evt.soldCapacity || 0;
             const fillRate = Math.round((soldCap / totalCap) * 100);
+            const isClosed = isEventClosedOrPast(evt);
 
             return (
               <div
                 key={evt.id}
-                className="bg-surface-container-lowest rounded-3xl overflow-hidden border border-outline-variant/30 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group"
+                className={`bg-surface-container-lowest rounded-3xl overflow-hidden border border-outline-variant/30 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group ${
+                  isClosed ? 'opacity-90' : ''
+                }`}
               >
                 {/* Banner Thumbnail */}
                 <div className="relative h-36 w-full overflow-hidden rounded-t-2xl shrink-0">
@@ -126,9 +129,16 @@ export function EventCatalog() {
                   <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white font-bold text-xs">
                     {evt.category}
                   </div>
-                  <div className="absolute top-3 right-3 px-2.5 py-0.5 rounded-full bg-[#4EED15] text-[#002D8C] font-black text-[10px] uppercase tracking-wider font-mono shadow-md">
-                    {fillRate}% Vendu
-                  </div>
+                  {isClosed ? (
+                    <div className="absolute top-3 right-3 px-2.5 py-0.5 rounded-full bg-amber-500 text-black font-black text-[10px] uppercase tracking-wider font-mono shadow-md flex items-center gap-1 border border-amber-300">
+                      <Lock className="w-3 h-3" />
+                      Terminé
+                    </div>
+                  ) : (
+                    <div className="absolute top-3 right-3 px-2.5 py-0.5 rounded-full bg-[#4EED15] text-[#002D8C] font-black text-[10px] uppercase tracking-wider font-mono shadow-md">
+                      {fillRate}% Vendu
+                    </div>
+                  )}
                 </div>
 
                 {/* Event Details */}
@@ -177,9 +187,13 @@ export function EventCatalog() {
 
                     <Link
                       href={`/discover/${evt.slug}`}
-                      className="px-4 py-2 rounded-xl bg-[#0038A8] hover:bg-[#002D8C] text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-transform active:scale-95"
+                      className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition-transform active:scale-95 ${
+                        isClosed
+                          ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/40 hover:bg-amber-500/25'
+                          : 'bg-[#0038A8] hover:bg-[#002D8C] text-white'
+                      }`}
                     >
-                      <span>Réserver</span>
+                      <span>{isClosed ? 'Terminé' : 'Réserver'}</span>
                       <ChevronRight className="w-4 h-4" />
                     </Link>
                   </div>

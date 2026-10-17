@@ -523,10 +523,11 @@
       "id": "8d3089e5-aae2-44d6-b8b8-9b6caada0cc4",
       "fullName": "test Jel tix",
       "email": "testjeltix@gmail.com",
-      "phone": "",
+      "phone": "+221 77 999 88 77",
       "role": "ORGANIZER",
       "isActive": true,
-      "createdAt": "2026-10-16T16:07:28.104574+00:00"
+      "createdAt": "2026-10-16T16:07:28.104574+00:00",
+      "organization": "Jël Tix SAS"
     },
     {
       "id": "10656978-1aab-481a-a7a8-010f90924a08",

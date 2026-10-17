@@ -24,7 +24,15 @@ import {
   Sparkles,
   Server,
   Layers,
+  Pencil,
+  Lock,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Save,
+  Loader2,
 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
 
 interface HeaderProps {
   onOpenMobileSidebar?: () => void;
@@ -140,6 +148,17 @@ export function Header({ onOpenMobileSidebar }: HeaderProps) {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
 
+  // États d'édition du profil utilisateur
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileFullName, setProfileFullName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileOrganization, setProfileOrganization] = useState('');
+  const [profileNewPassword, setProfileNewPassword] = useState('');
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [showPasswordText, setShowPasswordText] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const { addToast } = useToast();
+
   const notifRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -241,6 +260,94 @@ export function Header({ onOpenMobileSidebar }: HeaderProps) {
   const displayName = currentUser?.fullName || (currentUser?.email ? currentUser.email.split('@')[0] : 'Utilisateur');
   const roleLabel = getRoleLabel(currentUser?.role, currentUser?.email);
   const initials = getInitials(displayName);
+
+  // Ouverture et synchronisation du formulaire profil
+  const openProfileModal = () => {
+    setIsEditingProfile(false);
+    setProfileFullName(currentUser?.fullName || '');
+    setProfilePhone(currentUser?.phone || '');
+    setProfileOrganization(currentUser?.organization || '');
+    setProfileNewPassword('');
+    setShowPasswordSection(false);
+    setShowPasswordText(false);
+    setShowUserDropdown(false);
+    setShowProfileModal(true);
+  };
+
+  // Enregistrement des modifications du profil
+  const handleSaveProfile = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!profileFullName.trim()) {
+      addToast({
+        type: 'warning',
+        title: 'Nom requis',
+        message: 'Veuillez saisir votre nom complet.',
+      });
+      return;
+    }
+
+    if (profileNewPassword && profileNewPassword.trim().length < 6) {
+      addToast({
+        type: 'warning',
+        title: 'Mot de passe trop court',
+        message: 'Le mot de passe doit comporter au moins 6 caractères.',
+      });
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      const res = await fetch('/api/users/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser?.id,
+          email: currentUser?.email,
+          fullName: profileFullName.trim(),
+          phone: profilePhone.trim(),
+          organization: profileOrganization.trim(),
+          newPassword: profileNewPassword ? profileNewPassword.trim() : undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Erreur lors de la mise à jour du profil.');
+      }
+
+      const updatedUser: UserProfile = {
+        ...(currentUser || ({} as any)),
+        ...data.user,
+        fullName: profileFullName.trim(),
+        phone: profilePhone.trim() || undefined,
+        organization: profileOrganization.trim() || undefined,
+      };
+
+      setCurrentUser(updatedUser);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('jeltix_current_user', JSON.stringify(updatedUser));
+      }
+
+      addToast({
+        type: 'success',
+        title: 'Profil mis à jour',
+        message: 'Vos informations personnelles ont été enregistrées avec succès.',
+      });
+
+      setIsEditingProfile(false);
+      setProfileNewPassword('');
+      setShowPasswordSection(false);
+    } catch (err: any) {
+      console.error('Erreur handleSaveProfile:', err);
+      addToast({
+        type: 'error',
+        title: 'Erreur',
+        message: err.message || 'Impossible de mettre à jour votre profil.',
+      });
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   return (
     <>
@@ -355,10 +462,7 @@ export function Header({ onOpenMobileSidebar }: HeaderProps) {
                 <div className="space-y-1">
                   {/* Bouton 1 : Mon profil */}
                   <button
-                    onClick={() => {
-                      setShowUserDropdown(false);
-                      setShowProfileModal(true);
-                    }}
+                    onClick={openProfileModal}
                     className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-[#0038A8] dark:hover:text-[#4EED15] text-xs font-bold transition-all cursor-pointer group text-left"
                   >
                     <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-[#0038A8] dark:text-[#4EED15] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
@@ -410,87 +514,276 @@ export function Header({ onOpenMobileSidebar }: HeaderProps) {
       </header>
 
       {/* ============================================================ */}
-      {/* MODALE 1 : MON PROFIL */}
+      {/* MODALE 1 : MON PROFIL (CONSULTATION & ÉDITION) */}
       {/* ============================================================ */}
       {showProfileModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#0E1A33] text-slate-900 dark:text-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-white/10 animate-in zoom-in-95 duration-200 space-y-4">
-            {/* Header */}
+          <div className="bg-white dark:bg-[#0E1A33] text-slate-900 dark:text-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-white/10 animate-in zoom-in-95 duration-200 space-y-4 max-h-[90vh] overflow-y-auto">
+            {/* Header de la modale */}
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#0038A8]/10 text-[#0038A8] dark:text-[#4EED15] flex items-center justify-center">
-                  <User className="w-5 h-5" />
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                  isEditingProfile
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                    : 'bg-[#0038A8]/10 text-[#0038A8] dark:text-[#4EED15]'
+                }`}>
+                  {isEditingProfile ? <Pencil className="w-5 h-5" /> : <User className="w-5 h-5" />}
                 </div>
                 <div>
-                  <h3 className="text-base font-black">Mon Profil Utilisateur</h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Détails et coordonnées</p>
+                  <h3 className="text-base font-black">
+                    {isEditingProfile ? 'Modifier mes informations' : 'Mon Profil Utilisateur'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {isEditingProfile ? 'Mettez à jour vos coordonnées personnelles' : 'Détails et coordonnées'}
+                  </p>
                 </div>
               </div>
               <button
-                onClick={() => setShowProfileModal(false)}
+                type="button"
+                onClick={() => {
+                  setShowProfileModal(false);
+                  setIsEditingProfile(false);
+                }}
                 className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Avatar & Nom */}
-            <div className="flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-slate-50 to-blue-50/50 dark:from-white/5 dark:to-blue-950/20 border border-slate-200 dark:border-white/10">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#0038A8] to-[#0D52D6] text-white flex items-center justify-center font-black text-xl shadow-md shrink-0">
-                {initials}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h4 className="text-base font-extrabold truncate">{displayName}</h4>
-                <div className="mt-1 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#0038A8] text-white text-[10px] font-bold font-mono">
-                  {roleLabel}
+            {/* MODE CONSULTATION */}
+            {!isEditingProfile ? (
+              <>
+                {/* Avatar & Nom */}
+                <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-slate-50 to-blue-50/50 dark:from-white/5 dark:to-blue-950/20 border border-slate-200 dark:border-white/10">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#0038A8] to-[#0D52D6] text-white flex items-center justify-center font-black text-xl shadow-md shrink-0">
+                      {initials}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-base font-extrabold truncate">{displayName}</h4>
+                      <div className="mt-1 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#0038A8] text-white text-[10px] font-bold font-mono">
+                        {roleLabel}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProfile(true)}
+                    className="p-2.5 rounded-xl bg-white dark:bg-white/10 border border-slate-200 dark:border-white/10 hover:border-[#0038A8] dark:hover:border-[#4EED15] text-[#0038A8] dark:text-[#4EED15] hover:scale-105 active:scale-95 transition-all shadow-xs cursor-pointer shrink-0 inline-flex items-center gap-1.5 text-xs font-bold"
+                    title="Modifier mon profil"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>Modifier</span>
+                  </button>
                 </div>
-              </div>
-            </div>
 
-            {/* Détails du compte */}
-            <div className="space-y-2.5 text-xs">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-                <Mail className="w-4 h-4 text-[#0038A8] dark:text-[#4EED15] shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase font-mono">Adresse Email</p>
-                  <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{currentUser?.email || 'Non renseigné'}</p>
+                {/* Détails du compte */}
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                    <Mail className="w-4 h-4 text-[#0038A8] dark:text-[#4EED15] shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase font-mono">Adresse Email</p>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{currentUser?.email || 'Non renseigné'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                    <Phone className="w-4 h-4 text-[#0038A8] dark:text-[#4EED15] shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase font-mono">Téléphone</p>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">{currentUser?.phone || '+221 77 000 00 00'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                    <Building2 className="w-4 h-4 text-[#0038A8] dark:text-[#4EED15] shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase font-mono">Organisation</p>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">{currentUser?.organization || 'Jël Tix SAS'}</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-                <Phone className="w-4 h-4 text-[#0038A8] dark:text-[#4EED15] shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase font-mono">Téléphone</p>
-                  <p className="font-semibold text-slate-800 dark:text-slate-200">{currentUser?.phone || '+221 77 000 00 00'}</p>
+                {/* Actions Consultation */}
+                <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProfile(true)}
+                    className="flex-1 py-3 rounded-xl bg-[#0038A8] hover:bg-[#002D8C] text-white text-xs font-bold text-center transition-all shadow-md inline-flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    <span>Modifier mes informations</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowProfileModal(false)}
+                    className="px-5 py-3 rounded-xl bg-slate-100 dark:bg-white/10 text-xs font-bold cursor-pointer hover:bg-slate-200 dark:hover:bg-white/15 transition-colors"
+                  >
+                    Fermer
+                  </button>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-                <Building2 className="w-4 h-4 text-[#0038A8] dark:text-[#4EED15] shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase font-mono">Organisation</p>
-                  <p className="font-semibold text-slate-800 dark:text-slate-200">{currentUser?.organization || 'Jël Tix SAS'}</p>
+              </>
+            ) : (
+              /* MODE ÉDITION DU PROFIL */
+              <form onSubmit={handleSaveProfile} className="space-y-4">
+                {/* Champ 1 : Nom complet */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                    Nom complet &amp; Prénom
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={profileFullName}
+                      onChange={(e) => setProfileFullName(e.target.value)}
+                      placeholder="ex: Mamadou Cheikh Ba"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-white/15 bg-slate-50 dark:bg-white/5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#0038A8] dark:focus:ring-[#4EED15] transition-all font-medium"
+                    />
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Actions */}
-            <div className="pt-2 flex gap-2">
-              <Link
-                href="/users"
-                onClick={() => setShowProfileModal(false)}
-                className="flex-1 py-3 rounded-xl bg-[#0038A8] hover:bg-[#002D8C] text-white text-xs font-bold text-center transition-all shadow-md"
-              >
-                Gérer l'équipe &amp; Rôles
-              </Link>
-              <button
-                type="button"
-                onClick={() => setShowProfileModal(false)}
-                className="px-5 py-3 rounded-xl bg-slate-100 dark:bg-white/10 text-xs font-bold cursor-pointer hover:bg-slate-200 dark:hover:bg-white/15 transition-colors"
-              >
-                Fermer
-              </button>
-            </div>
+                {/* Champ 2 : Téléphone */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                    Numéro de Téléphone
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <Phone className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="tel"
+                      value={profilePhone}
+                      onChange={(e) => setProfilePhone(e.target.value)}
+                      placeholder="ex: +221 77 123 45 67"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-white/15 bg-slate-50 dark:bg-white/5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#0038A8] dark:focus:ring-[#4EED15] transition-all font-medium"
+                    />
+                  </div>
+                </div>
+
+                {/* Champ 3 : Organisation */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                    Organisation / Entreprise
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      value={profileOrganization}
+                      onChange={(e) => setProfileOrganization(e.target.value)}
+                      placeholder="ex: Jël Tix SAS ou FoutaTicket"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-white/15 bg-slate-50 dark:bg-white/5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#0038A8] dark:focus:ring-[#4EED15] transition-all font-medium"
+                    />
+                  </div>
+                </div>
+
+                {/* Champ 4 : Adresse Email (Lecture seule sécurisée) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                      Adresse Email
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-mono inline-flex items-center gap-1">
+                      <Lock className="w-2.5 h-2.5" />
+                      <span>Identifiant lié au compte</span>
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="email"
+                      disabled
+                      value={currentUser?.email || ''}
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 text-xs text-slate-500 dark:text-slate-400 cursor-not-allowed font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Section Optionnelle : Modifier le mot de passe */}
+                <div className="p-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/3">
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordSection(!showPasswordSection)}
+                    className="w-full flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <KeyRound className="w-3.5 h-3.5 text-[#0038A8] dark:text-[#4EED15]" />
+                      <span>Modifier mon mot de passe</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-[#0038A8] dark:text-[#4EED15]">
+                      {showPasswordSection ? 'Masquer' : 'Déplier'}
+                    </span>
+                  </button>
+
+                  {showPasswordSection && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-white/10 space-y-2 animate-in fade-in duration-200">
+                      <div className="relative">
+                        <input
+                          type={showPasswordText ? 'text' : 'password'}
+                          value={profileNewPassword}
+                          onChange={(e) => setProfileNewPassword(e.target.value)}
+                          placeholder="Nouveau mot de passe (min. 6 caractères)"
+                          className="w-full pl-3.5 pr-10 py-2 rounded-xl border border-slate-300 dark:border-white/15 bg-white dark:bg-[#071229] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#0038A8] dark:focus:ring-[#4EED15]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswordText(!showPasswordText)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                        >
+                          {showPasswordText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        Laissez vide si vous ne souhaitez pas modifier votre mot de passe actuel.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions Édition */}
+                <div className="pt-2 flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={isSavingProfile}
+                    className="flex-1 py-3 rounded-xl bg-[#0038A8] hover:bg-[#002D8C] text-white text-xs font-bold text-center transition-all shadow-md inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-98"
+                  >
+                    {isSavingProfile ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Enregistrement…</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        <span>Enregistrer les modifications</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSavingProfile}
+                    onClick={() => {
+                      setIsEditingProfile(false);
+                      setProfileNewPassword('');
+                      setShowPasswordSection(false);
+                    }}
+                    className="px-4 py-3 rounded-xl bg-slate-100 dark:bg-white/10 text-xs font-bold cursor-pointer hover:bg-slate-200 dark:hover:bg-white/15 transition-colors disabled:opacity-50"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

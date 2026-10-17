@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react';
 import type { Ticket } from '@/types';
+import { isSuperAdminEmail } from '@/lib/services/profiles.service';
 
 const QRCodeSVG = dynamic(() => import('qrcode.react').then((m) => m.QRCodeSVG), {
   loading: () => <div className="w-40 h-40 bg-slate-100 dark:bg-white/10 rounded-2xl animate-pulse mx-auto" />,
@@ -35,15 +36,29 @@ const QRCodeSVG = dynamic(() => import('qrcode.react').then((m) => m.QRCodeSVG),
 });
 
 export default function MyTicketsPage() {
-  const { tickets, getTicketByCode, currentUser } = useJeltixStore();
+  const { tickets, events, getTicketByCode, currentUser, setCurrentUser } = useJeltixStore();
   const { addToast } = useToast();
 
-  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
-  const isOrganizer = currentUser?.role === 'ORGANIZER';
+  // Instant local session recovery if not already in store
+  useEffect(() => {
+    if (!currentUser && typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('jeltix_current_user_v2') || localStorage.getItem('jeltix_current_user');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.id) setCurrentUser(parsed);
+        }
+      } catch {}
+    }
+  }, [currentUser, setCurrentUser]);
+
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN' || (currentUser?.email ? isSuperAdminEmail(currentUser.email) : false);
+  const isOrganizer = currentUser?.role === 'ORGANIZER' && !isSuperAdmin;
   const isSeller = currentUser?.role === 'SELLER';
   const isStaff = isSuperAdmin || isOrganizer || isSeller;
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedEventFilter, setSelectedEventFilter] = useState<'ALL' | string>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'USED'>('ALL');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [lookupCode, setLookupCode] = useState('');
@@ -60,12 +75,65 @@ export default function MyTicketsPage() {
     }
   }, []);
 
-  // Filter user tickets (matches code, title, name or phone)
+  // Événements accessibles selon les permissions strictes
+  const availableEvents = useMemo(() => {
+    if (isSuperAdmin) return events;
+    if (isOrganizer && currentUser?.id) {
+      return events.filter((e) => e.organizerId === currentUser.id);
+    }
+    if (isSeller) {
+      const orgId = currentUser?.organizationId || currentUser?.id;
+      return events.filter((e) => e.organizerId === orgId);
+    }
+    return [];
+  }, [events, isSuperAdmin, isOrganizer, isSeller, currentUser]);
+
+  // Billets strictement restreints selon les permissions :
+  // - SUPER_ADMIN : Voit tous les billets de tous les événements
+  // - ORGANISATEUR : Voit EXCLUSIVEMENT les billets des événements QU'IL A CRÉÉS
+  // - VENDEUR : Voit EXCLUSIVEMENT les billets des événements créés par son organisateur
+  // - PUBLIC / SPECTATEUR : Voit UNIQUEMENT ses propres billets
+  const scopedTickets = useMemo(() => {
+    // 1. Super Administrateur
+    if (isSuperAdmin) {
+      return tickets;
+    }
+
+    // 2. Organisateur : strictement ses propres événements créés
+    if (isOrganizer && currentUser?.id) {
+      const myEvents = events.filter((e) => e.organizerId === currentUser.id);
+      const myEventIds = new Set(myEvents.map((e) => e.id));
+      return tickets.filter((t) => myEventIds.has(t.eventId));
+    }
+
+    // 3. Vendeur : strictement les événements de son organisateur
+    if (isSeller) {
+      const orgId = currentUser?.organizationId || currentUser?.id;
+      const myOrgEvents = events.filter((e) => e.organizerId === orgId);
+      const myOrgEventIds = new Set(myOrgEvents.map((e) => e.id));
+      return tickets.filter((t) => myOrgEventIds.has(t.eventId));
+    }
+
+    // 4. Client / Spectateur public : uniquement ses propres billets
+    if (devicePhone) {
+      const cleanDevice = devicePhone.replace(/\D/g, '');
+      if (cleanDevice.length >= 5) {
+        return tickets.filter((t) => (t.customerPhone || '').replace(/\D/g, '').includes(cleanDevice));
+      }
+    }
+
+    return [];
+  }, [tickets, events, isSuperAdmin, isOrganizer, isSeller, currentUser, devicePhone]);
+
+  // Filter user tickets (matches status, event, code, title, name or phone)
   const filteredTickets = useMemo(() => {
-    return tickets.filter((t) => {
+    return scopedTickets.filter((t) => {
       // Status filter
       if (statusFilter === 'ACTIVE' && t.status !== 'VALID') return false;
       if (statusFilter === 'USED' && t.status !== 'USED') return false;
+
+      // Event filter
+      if (selectedEventFilter !== 'ALL' && t.eventId !== selectedEventFilter) return false;
 
       // Query filter
       if (searchQuery.trim()) {
@@ -83,10 +151,10 @@ export default function MyTicketsPage() {
 
       return true;
     });
-  }, [tickets, statusFilter, searchQuery]);
+  }, [scopedTickets, statusFilter, selectedEventFilter, searchQuery]);
 
-  const activeCount = tickets.filter((t) => t.status === 'VALID').length;
-  const usedCount = tickets.filter((t) => t.status === 'USED').length;
+  const activeCount = scopedTickets.filter((t) => t.status === 'VALID').length;
+  const usedCount = scopedTickets.filter((t) => t.status === 'USED').length;
 
   const handleLookup = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,23 +162,32 @@ export default function MyTicketsPage() {
     const clean = lookupCode.trim().toUpperCase();
     if (!clean) return;
 
-    // 1. Check if input is a ticket code
-    const foundByCode = getTicketByCode(clean);
+    // Bassin de recherche : les billets autorisés selon le rôle
+    const searchPool = isStaff ? scopedTickets : tickets;
+
+    // 1. Recherche par code de billet
+    const foundByCode = searchPool.find(
+      (t) =>
+        t.ticketCode.toUpperCase() === clean ||
+        t.ticketCode.replace('JT-', 'FT-') === clean ||
+        t.ticketCode.replace('FT-', 'JT-') === clean
+    );
+
     if (foundByCode) {
       setSelectedTicket(foundByCode);
       setLookupCode('');
       addToast({
         type: 'success',
         title: 'Billet localisé !',
-        message: `Billet #${foundByCode.ticketCode} trouvé dans le registre officiel.`,
+        message: `Billet #${foundByCode.ticketCode} (${foundByCode.customerName}) trouvé avec succès.`,
       });
       return;
     }
 
-    // 2. Check if input is a phone number (e.g. 77..., +221...)
+    // 2. Recherche par numéro de téléphone
     const digitsOnly = clean.replace(/\D/g, '');
     if (digitsOnly.length >= 5) {
-      const matchingTickets = tickets.filter((t) =>
+      const matchingTickets = searchPool.filter((t) =>
         (t.customerPhone || '').replace(/\D/g, '').includes(digitsOnly)
       );
       if (matchingTickets.length > 0) {
@@ -125,11 +202,17 @@ export default function MyTicketsPage() {
       }
     }
 
-    setLookupError(`Aucun billet trouvé pour "${lookupCode}". Vérifiez le code (ex: JT-...) ou le numéro de téléphone.`);
+    const notFoundMsg = isOrganizer
+      ? `Aucun billet trouvé pour "${lookupCode}" sur vos événements créés.`
+      : isSeller
+      ? `Aucun billet trouvé pour "${lookupCode}" sur les événements de votre organisation.`
+      : `Aucun billet trouvé pour "${lookupCode}". Vérifiez le code (ex: JT-...) ou le numéro.`;
+
+    setLookupError(notFoundMsg);
     addToast({
       type: 'error',
       title: 'Introuvable',
-      message: `Aucun billet n'a été trouvé avec cette référence.`,
+      message: notFoundMsg,
     });
   };
 
@@ -200,38 +283,55 @@ export default function MyTicketsPage() {
               />
             </div>
 
-            {/* Filter Pills */}
-            <div className="flex items-center gap-1 bg-surface-container-high p-1 rounded-xl border border-outline-variant/40 shrink-0 w-full sm:w-auto justify-center">
-              <button
-                onClick={() => setStatusFilter('ALL')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  statusFilter === 'ALL'
-                    ? 'bg-primary text-on-primary shadow-xs'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                Tous ({tickets.length})
-              </button>
-              <button
-                onClick={() => setStatusFilter('ACTIVE')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  statusFilter === 'ACTIVE'
-                    ? 'bg-[#107c10] dark:bg-[#4EED15] text-white dark:text-[#002D8C] shadow-xs'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                Actifs ({activeCount})
-              </button>
-              <button
-                onClick={() => setStatusFilter('USED')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  statusFilter === 'USED'
-                    ? 'bg-slate-600 text-white shadow-xs'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                Scannés ({usedCount})
-              </button>
+            {/* Filter Pills & Event Switcher */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+              {isStaff && availableEvents.length > 1 && (
+                <select
+                  value={selectedEventFilter}
+                  onChange={(e) => setSelectedEventFilter(e.target.value)}
+                  className="bg-surface-container-high text-on-surface text-xs font-bold py-2 px-3 rounded-xl border border-outline-variant/40 outline-none cursor-pointer max-w-[200px] truncate"
+                >
+                  <option value="ALL">Tous mes événements ({scopedTickets.length})</option>
+                  {availableEvents.map((evt) => (
+                    <option key={evt.id} value={evt.id}>
+                      {evt.title.length > 25 ? evt.title.substring(0, 25) + '...' : evt.title}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <div className="flex items-center gap-1 bg-surface-container-high p-1 rounded-xl border border-outline-variant/40">
+                <button
+                  onClick={() => setStatusFilter('ALL')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    statusFilter === 'ALL'
+                      ? 'bg-primary text-on-primary shadow-xs'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  Tous ({scopedTickets.length})
+                </button>
+                <button
+                  onClick={() => setStatusFilter('ACTIVE')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    statusFilter === 'ACTIVE'
+                      ? 'bg-[#107c10] dark:bg-[#4EED15] text-white dark:text-[#002D8C] shadow-xs'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  Actifs ({activeCount})
+                </button>
+                <button
+                  onClick={() => setStatusFilter('USED')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    statusFilter === 'USED'
+                      ? 'bg-slate-600 text-white shadow-xs'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  Scannés ({usedCount})
+                </button>
+              </div>
             </div>
           </div>
 
@@ -282,10 +382,14 @@ export default function MyTicketsPage() {
             </h2>
             <p className="text-xs sm:text-sm text-on-surface-variant mb-6 leading-relaxed">
               {searchQuery
-                ? `La recherche "${searchQuery}" ne correspond à aucun billet émis. Vérifiez le numéro ou le code.`
-                : isStaff
-                ? 'Aucun billet n’a encore été émis pour le moment. Dès qu’une commande en ligne ou au guichet est finalisée, les billets apparaîtront ici.'
-                : 'Vous n\'avez pas encore acheté de billet lors de cette session, ou vos filtres ne retournent aucun résultat.'}
+                ? `La recherche "${searchQuery}" ne correspond à aucun billet émis pour vos événements. Vérifiez le numéro ou le code.`
+                : isOrganizer
+                ? 'Aucun billet n’a encore été vendu pour vos événements. Dès qu’une commande en ligne ou au guichet est finalisée pour l’un de vos événements créés, les billets apparaîtront ici.'
+                : isSeller
+                ? 'Aucun billet n’a encore été vendu pour les événements de votre organisation.'
+                : isSuperAdmin
+                ? 'Aucun billet n’a encore été émis sur la plateforme.'
+                : 'Vous n’avez pas encore de billet dans votre portefeuille. Utilisez le champ ci-dessus pour rechercher vos billets par code ou par numéro de téléphone.'}
             </p>
             <Link
               href="/"

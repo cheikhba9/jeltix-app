@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Logo } from '@/components/ui/Logo';
@@ -11,7 +11,20 @@ import { Menu, X, Calendar, LogIn, Ticket, Sparkles, LayoutDashboard } from 'luc
 export function PublicHeader() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { currentUser } = useStore();
+  const { currentUser, setCurrentUser } = useStore();
+
+  // Instant local session recovery if not already in store
+  useEffect(() => {
+    if (!currentUser && typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('jeltix_current_user_v2') || localStorage.getItem('jeltix_current_user');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.id) setCurrentUser(parsed);
+        }
+      } catch {}
+    }
+  }, [currentUser, setCurrentUser]);
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white/95 dark:bg-[#071229]/95 backdrop-blur-xl border-b border-slate-200 dark:border-white/10 shadow-[0_2px_15px_rgba(0,45,140,0.04)] transition-colors">
@@ -46,14 +59,16 @@ export function PublicHeader() {
           {/* Light / Dark Mode Toggle Button */}
           <ThemeToggle />
 
-          {/* Mes Billets */}
-          <Link
-            href="/tickets"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-[#0038A8] dark:text-white font-bold text-xs border border-slate-200 dark:border-white/10 transition-colors"
-          >
-            <Ticket className="w-4 h-4 text-[#2CA808] dark:text-[#4EED15]" />
-            <span>Mes Billets</span>
-          </Link>
+          {/* Mes Billets (Affiché UNIQUEMENT si l'utilisateur est connecté) */}
+          {currentUser && (
+            <Link
+              href="/tickets"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-[#0038A8] dark:text-white font-bold text-xs border border-slate-200 dark:border-white/10 transition-colors"
+            >
+              <Ticket className="w-4 h-4 text-[#2CA808] dark:text-[#4EED15]" />
+              <span>Mes Billets</span>
+            </Link>
+          )}
 
           {/* Connexion ou Tableau de bord */}
           {currentUser ? (
@@ -115,14 +130,17 @@ export function PublicHeader() {
             <span>Événement vedette</span>
           </Link>
 
-          <Link
-            href="/tickets"
-            onClick={() => setMobileMenuOpen(false)}
-            className="flex items-center gap-3 py-2 text-sm font-semibold text-slate-800 dark:text-slate-200 hover:text-[#0038A8]"
-          >
-            <Ticket className="w-5 h-5 text-[#2CA808] dark:text-[#4EED15]" />
-            <span>Mes Billets (Retrouver mon billet)</span>
-          </Link>
+          {/* Mes Billets (Mobile : affiché UNIQUEMENT si connecté) */}
+          {currentUser && (
+            <Link
+              href="/tickets"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 py-2 text-sm font-semibold text-slate-800 dark:text-slate-200 hover:text-[#0038A8]"
+            >
+              <Ticket className="w-5 h-5 text-[#2CA808] dark:text-[#4EED15]" />
+              <span>Mes Billets</span>
+            </Link>
+          )}
 
           <div className="pt-2 border-t border-slate-200 dark:border-white/10">
             {currentUser ? (

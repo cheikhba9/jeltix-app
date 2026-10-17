@@ -31,6 +31,7 @@ import {
   EyeOff,
   Save,
   Loader2,
+  Ticket,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
@@ -490,6 +491,21 @@ export function Header({ onOpenMobileSidebar }: HeaderProps) {
                       <p className="text-[10px] text-slate-400 font-normal">Permissions, rôle &amp; statut système</p>
                     </div>
                   </button>
+
+                  {/* Bouton 3 : Recherche & Billets (Support client) */}
+                  <Link
+                    href="/tickets"
+                    onClick={() => setShowUserDropdown(false)}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 hover:text-[#0038A8] dark:hover:text-[#4EED15] text-xs font-bold transition-all cursor-pointer group text-left"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-[#4EED15] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Ticket className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-xs">Recherche & Mes Billets</p>
+                      <p className="text-[10px] text-slate-400 font-normal">Retrouver et renvoyer un billet perdu</p>
+                    </div>
+                  </Link>
                 </div>
 
                 {/* Séparateur & Déconnexion */}

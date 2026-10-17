@@ -65,7 +65,7 @@ export function FeaturedSpotlight() {
   if (!featuredEvent) return null;
 
   return (
-    <section className="max-w-[1440px] mx-auto px-4 sm:px-6 -mt-8 relative z-20 w-full">
+    <section id="featured-event" className="max-w-[1440px] mx-auto px-4 sm:px-6 -mt-8 relative z-20 w-full scroll-mt-24">
       <div className="bg-gradient-to-r from-[#0038A8] via-[#0B4FD8] to-[#002878] rounded-3xl p-6 sm:p-8 shadow-2xl text-white border border-white/20 relative overflow-hidden">
         <div className="absolute right-0 top-0 w-1/2 h-full opacity-15 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none" />
 

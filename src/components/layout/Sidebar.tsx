@@ -18,6 +18,7 @@ import {
   Users,
   Store,
   ShoppingCart,
+  Ticket,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -34,6 +35,13 @@ const NAV_ITEMS = [
     icon: Calendar,
     roles: ['SUPER_ADMIN', 'ORGANIZER'],
     description: 'Catalogue & Billetterie',
+  },
+  {
+    href: '/tickets',
+    label: 'Recherche Billets',
+    icon: Ticket,
+    roles: ['SUPER_ADMIN', 'ORGANIZER', 'SELLER'],
+    description: 'Retrouver & renvoyer un billet perdu',
   },
   {
     href: '/sales',

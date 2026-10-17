@@ -48,7 +48,7 @@ export function EventCatalog() {
   );
 
   return (
-    <section id="event-catalog" className="max-w-[1440px] mx-auto px-4 sm:px-6 py-16 w-full space-y-8">
+    <section id="event-catalog" className="max-w-[1440px] mx-auto px-4 sm:px-6 py-16 w-full space-y-8 scroll-mt-24">
       {/* Header + Filtres */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-outline-variant/30 pb-4">
         <div>

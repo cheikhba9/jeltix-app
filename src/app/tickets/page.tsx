@@ -35,8 +35,13 @@ const QRCodeSVG = dynamic(() => import('qrcode.react').then((m) => m.QRCodeSVG),
 });
 
 export default function MyTicketsPage() {
-  const { tickets, getTicketByCode } = useJeltixStore();
+  const { tickets, getTicketByCode, currentUser } = useJeltixStore();
   const { addToast } = useToast();
+
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+  const isOrganizer = currentUser?.role === 'ORGANIZER';
+  const isSeller = currentUser?.role === 'SELLER';
+  const isStaff = isSuperAdmin || isOrganizer || isSeller;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'USED'>('ALL');
@@ -120,12 +125,24 @@ export default function MyTicketsPage() {
       }
     }
 
-    setLookupError(`Aucun billet trouvé pour "${lookupCode}". Vérifiez le code (ex: JT-...) ou votre numéro de téléphone.`);
+    setLookupError(`Aucun billet trouvé pour "${lookupCode}". Vérifiez le code (ex: JT-...) ou le numéro de téléphone.`);
     addToast({
       type: 'error',
       title: 'Introuvable',
       message: `Aucun billet n'a été trouvé avec cette référence.`,
     });
+  };
+
+  const getWhatsAppLink = (ticket: Ticket) => {
+    const rawPhone = (ticket.customerPhone || '').replace(/\D/g, '');
+    const cleanPhone = rawPhone.length === 9 && !rawPhone.startsWith('221') ? `221${rawPhone}` : rawPhone;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://jeltix.sn';
+    const msg = `🎟️ *Votre e-Billet Jël Tix*\n\n*Événement :* ${ticket.eventTitle}\n*Formule :* ${ticket.ticketTypeName}\n*Titulaire :* ${ticket.customerName}\n*Code Unique :* ${ticket.ticketCode}\n*Porte conseillée :* ${ticket.gateRecommendation || 'Porte Principale'}\n\n👉 Cliquez pour afficher votre QR Code d'accès :\n${origin}/tickets/${ticket.ticketCode}`;
+    
+    if (cleanPhone.length >= 8) {
+      return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
+    }
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
   };
 
   return (
@@ -134,18 +151,32 @@ export default function MyTicketsPage() {
 
       <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Hero Section */}
-        <div className="bg-gradient-to-br from-primary via-primary-container to-[#001E5B] text-on-primary rounded-3xl p-6 sm:p-10 mb-8 shadow-xl relative overflow-hidden">
+        <div className={`text-on-primary rounded-3xl p-6 sm:p-10 mb-8 shadow-xl relative overflow-hidden ${
+          isStaff
+            ? 'bg-gradient-to-br from-[#002D8C] via-[#0B4FD8] to-[#041A4E]'
+            : 'bg-gradient-to-br from-primary via-primary-container to-[#001E5B]'
+        }`}>
           <div className="absolute top-0 right-0 -mt-10 -mr-10 w-60 h-60 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-          <div className="relative z-10 max-w-2xl">
+          <div className="relative z-10 max-w-3xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-xs font-mono font-bold mb-4">
               <ShieldCheck className="w-4 h-4 text-[#4EED15]" />
-              <span>Portefeuille Sécurisé Jël Tix • Sénégal</span>
+              <span>
+                {isSuperAdmin
+                  ? 'Espace Administrateur • Registre Global des Billets'
+                  : isOrganizer
+                  ? 'Espace Organisateur • Support & Récupération Billets'
+                  : isSeller
+                  ? 'Espace Vendeur (Guichet) • Récupération Billets Clients'
+                  : 'Portefeuille Sécurisé Jël Tix • Sénégal'}
+              </span>
             </div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight">
-              Mes E-Billets & Accès
+              {isStaff ? 'Recherche & Récupération de Billets' : 'Mes E-Billets & Accès'}
             </h1>
             <p className="text-sm sm:text-base text-on-primary/80 mt-2 leading-relaxed">
-              Consultez vos QR codes anti-fraude hors-ligne, présentez-les aux tourniquets et profitez de vos événements préférés sans attente.
+              {isStaff
+                ? 'Un spectateur a égaré son billet ou son SMS ? Retrouvez immédiatement son accès par son numéro de téléphone ou son code de billet pour le lui renvoyer par WhatsApp ou lui afficher son QR code.'
+                : 'Consultez vos QR codes anti-fraude hors-ligne, présentez-les aux tourniquets et profitez de vos événements préférés sans attente.'}
             </p>
           </div>
         </div>
@@ -160,7 +191,11 @@ export default function MyTicketsPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filtrer mes billets (#JT-, événement)…"
+                placeholder={
+                  isStaff
+                    ? "Rechercher par n° client (77...), nom ou code #JT-…"
+                    : "Filtrer mes billets (#JT-, événement)…"
+                }
                 className="w-full bg-surface-container-high text-on-surface placeholder:text-on-surface-variant/60 text-xs pl-10 pr-4 py-2.5 rounded-xl border border-outline-variant/40 focus:border-primary focus:outline-none transition"
               />
             </div>
@@ -242,9 +277,15 @@ export default function MyTicketsPage() {
             <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-4">
               <TicketIcon className="w-8 h-8" />
             </div>
-            <h2 className="text-xl font-black text-on-surface mb-2">Aucun billet dans votre portefeuille</h2>
+            <h2 className="text-xl font-black text-on-surface mb-2">
+              {searchQuery ? 'Aucun billet correspondant' : 'Aucun billet dans votre registre'}
+            </h2>
             <p className="text-xs sm:text-sm text-on-surface-variant mb-6 leading-relaxed">
-              Vous n'avez pas encore acheté de billet lors de cette session, ou vos filtres ne retournent aucun résultat. Découvrez nos événements phares et réservez en quelques clics via Wave ou Orange Money !
+              {searchQuery
+                ? `La recherche "${searchQuery}" ne correspond à aucun billet émis. Vérifiez le numéro ou le code.`
+                : isStaff
+                ? 'Aucun billet n’a encore été émis pour le moment. Dès qu’une commande en ligne ou au guichet est finalisée, les billets apparaîtront ici.'
+                : 'Vous n\'avez pas encore acheté de billet lors de cette session, ou vos filtres ne retournent aucun résultat.'}
             </p>
             <Link
               href="/"
@@ -307,6 +348,12 @@ export default function MyTicketsPage() {
                         <p className="text-on-surface-variant text-[11px] truncate">
                           Titulaire : <strong>{t.customerName}</strong>
                         </p>
+                        {t.customerPhone && (
+                          <p className="text-on-surface-variant text-[10px] font-mono truncate flex items-center gap-1 text-primary dark:text-[#4EED15]">
+                            <span>Tél :</span>
+                            <span className="font-bold">{t.customerPhone}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -315,22 +362,42 @@ export default function MyTicketsPage() {
                       <button
                         onClick={() => setSelectedTicket(t)}
                         className="flex-1 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                        title="Afficher le QR Code"
                       >
                         <QrCode className="w-3.5 h-3.5 text-primary" />
-                        <span>Voir QR Code</span>
+                        <span>Voir QR</span>
                       </button>
 
                       <a
-                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                          `🎟️ *Mon e-Billet Jël Tix*\n*Événement :* ${t.eventTitle}\n*Billet :* ${t.ticketTypeName}\n*Porteur :* ${t.customerName}\n*Code Unique :* ${t.ticketCode}\n👉 Voir mon QR Code :\n${typeof window !== 'undefined' ? window.location.origin : 'https://jeltix.sn'}/tickets/${t.ticketCode}`
-                        )}`}
+                        href={getWhatsAppLink(t)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="py-2.5 px-3 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] text-white text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm"
-                        title="Partager ce billet sur WhatsApp"
+                        title={
+                          t.customerPhone
+                            ? `Envoyer le billet à ${t.customerPhone} par WhatsApp`
+                            : "Partager ce billet sur WhatsApp"
+                        }
                       >
                         <span className="material-symbols-outlined text-[17px]">chat</span>
                       </a>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/tickets/${t.ticketCode}`;
+                          navigator.clipboard.writeText(url);
+                          addToast({
+                            type: 'success',
+                            title: 'Lien copié !',
+                            message: `Lien du billet #${t.ticketCode} copié dans le presse-papier.`,
+                          });
+                        }}
+                        className="py-2.5 px-3 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                        title="Copier le lien direct du billet"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                      </button>
 
                       <Link
                         href={`/tickets/${t.ticketCode}`}
@@ -404,14 +471,12 @@ export default function MyTicketsPage() {
 
             {/* Action buttons */}
             <div className="flex flex-col gap-2 pt-2">
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <a
-                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                    `🎟️ *Mon e-Billet Jël Tix*\n*Événement :* ${selectedTicket.eventTitle}\n*Billet :* ${selectedTicket.ticketTypeName}\n*Porteur :* ${selectedTicket.customerName}\n*Code Unique :* ${selectedTicket.ticketCode}\n👉 Voir mon QR Code :\n${typeof window !== 'undefined' ? window.location.origin : 'https://jeltix.sn'}/tickets/${selectedTicket.ticketCode}`
-                  )}`}
+                  href={getWhatsAppLink(selectedTicket)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 py-3 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] text-white font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
+                  className="py-3 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] text-white font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
                   title="Envoyer sur WhatsApp"
                 >
                   <span className="material-symbols-outlined text-[17px]">chat</span>
@@ -419,18 +484,38 @@ export default function MyTicketsPage() {
                 </a>
                 <Link
                   href={`/tickets/${selectedTicket.ticketCode}`}
-                  className="flex-1 py-3 rounded-xl bg-primary text-on-primary font-bold text-xs hover:bg-primary-hover transition flex items-center justify-center gap-1.5"
+                  className="py-3 rounded-xl bg-primary text-on-primary font-bold text-xs hover:bg-primary-hover transition flex items-center justify-center gap-1.5"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>Plein Écran</span>
                 </Link>
               </div>
-              <button
-                onClick={() => setSelectedTicket(null)}
-                className="w-full py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs transition cursor-pointer"
-              >
-                Fermer
-              </button>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/tickets/${selectedTicket.ticketCode}`;
+                    navigator.clipboard.writeText(url);
+                    addToast({
+                      type: 'success',
+                      title: 'Lien copié !',
+                      message: `Lien du billet #${selectedTicket.ticketCode} copié dans le presse-papier.`,
+                    });
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Copier le lien</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTicket(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant font-bold text-xs transition cursor-pointer"
+                >
+                  Fermer
+                </button>
+              </div>
             </div>
           </div>
         </div>

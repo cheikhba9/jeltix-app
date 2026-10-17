@@ -20,6 +20,8 @@ import {
   AlertCircle,
   ChevronRight,
   LogOut,
+  Phone,
+  MapPin,
 } from 'lucide-react';
 import type { UserRole, UserProfile } from '@/types';
 import { getDefaultRouteForRole } from '@/types';
@@ -37,6 +39,8 @@ export default function LoginPage() {
 
   const [mode, setMode] = useState<AuthMode>('login');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -168,6 +172,8 @@ function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T> {
             email: cleanEmail,
             password,
             fullName: fullName.trim() || undefined,
+            phone: phone.trim() || undefined,
+            address: address.trim() || undefined,
           }),
         });
 
@@ -408,19 +414,43 @@ function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T> {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-3.5 max-w-sm mx-auto w-full">
-              {/* Name field in Register mode */}
+              {/* Name, Phone, and Address fields in Register mode */}
               {mode === 'register' && (
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Nom complet ou Organisation"
-                    className="w-full pl-4 pr-11 py-3 rounded-xl bg-[#F0F4F9] dark:bg-slate-800/80 border-none text-slate-800 dark:text-white placeholder-slate-400 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#5B8DEF] transition-all"
-                  />
-                  <User className="w-4 h-4 text-slate-700 dark:text-slate-300 absolute right-4 top-1/2 -translate-y-1/2" />
-                </div>
+                <>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Nom complet ou Organisation"
+                      className="w-full pl-4 pr-11 py-3 rounded-xl bg-[#F0F4F9] dark:bg-slate-800/80 border-none text-slate-800 dark:text-white placeholder-slate-400 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#5B8DEF] transition-all"
+                    />
+                    <User className="w-4 h-4 text-slate-700 dark:text-slate-300 absolute right-4 top-1/2 -translate-y-1/2" />
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="Numéro de téléphone"
+                      className="w-full pl-4 pr-11 py-3 rounded-xl bg-[#F0F4F9] dark:bg-slate-800/80 border-none text-slate-800 dark:text-white placeholder-slate-400 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#5B8DEF] transition-all"
+                    />
+                    <Phone className="w-4 h-4 text-slate-700 dark:text-slate-300 absolute right-4 top-1/2 -translate-y-1/2" />
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Adresse"
+                      className="w-full pl-4 pr-11 py-3 rounded-xl bg-[#F0F4F9] dark:bg-slate-800/80 border-none text-slate-800 dark:text-white placeholder-slate-400 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#5B8DEF] transition-all"
+                    />
+                    <MapPin className="w-4 h-4 text-slate-700 dark:text-slate-300 absolute right-4 top-1/2 -translate-y-1/2" />
+                  </div>
+                </>
               )}
 
               {/* Email field */}

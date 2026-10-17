@@ -24,7 +24,7 @@ function getAdminClient() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password, fullName, phone, organization } = body;
+    const { email, password, fullName, phone, address, organization } = body;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -42,6 +42,8 @@ export async function POST(request: Request) {
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = (fullName || cleanEmail.split('@')[0] || 'Organisateur').trim();
+    const cleanPhone = phone ? String(phone).trim() : undefined;
+    const cleanAddress = address ? String(address).trim() : undefined;
     const role: UserRole = isSuperAdminEmail(cleanEmail) ? 'SUPER_ADMIN' : 'ORGANIZER';
 
     const supabaseAdmin = getAdminClient();
@@ -61,6 +63,8 @@ export async function POST(request: Request) {
         user_metadata: {
           full_name: cleanName,
           role,
+          phone: cleanPhone,
+          address: cleanAddress,
         },
       });
 
@@ -82,6 +86,8 @@ export async function POST(request: Request) {
           user_metadata: {
             full_name: cleanName,
             role,
+            phone: cleanPhone,
+            address: cleanAddress,
           },
         }
       );
@@ -100,7 +106,7 @@ export async function POST(request: Request) {
         email: cleanEmail,
         full_name: cleanName,
         role,
-        phone: phone || null,
+        phone: cleanPhone || null,
         organization: organization || (role === 'SUPER_ADMIN' ? 'Jël Tix SAS' : cleanName),
         is_active: true,
       })
@@ -120,7 +126,8 @@ export async function POST(request: Request) {
       email: profile.email,
       fullName: profile.full_name,
       role: profile.role as UserRole,
-      phone: profile.phone || undefined,
+      phone: profile.phone || cleanPhone || undefined,
+      address: cleanAddress || undefined,
       organization: profile.organization || undefined,
       organizationId: profile.organization_id || null,
       isActive: profile.is_active !== false,

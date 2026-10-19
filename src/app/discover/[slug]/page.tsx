@@ -100,6 +100,8 @@ export default function PublicEventDetailPage({
         'jeltix_checkout',
         JSON.stringify({
           eventId: event.id,
+          eventSlug: event.slug,
+          eventTitle: event.title,
           items: selectedItems.map((it) => ({
             ticketTypeId: it.ticketType.id,
             ticketTypeName: it.ticketType.name,

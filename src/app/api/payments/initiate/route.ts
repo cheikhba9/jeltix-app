@@ -67,12 +67,71 @@ export async function POST(req: Request) {
       `/discover?cancelled=1`
     );
 
-    // Appel au gestionnaire de passerelle
+    // Vérification et recalcul strict du montant officiel à partir des prix fixés sur l'événement en base
+    let calculatedAmount = 0;
+    let finalEventTitle = eventTitle || 'Événement';
+    let validatedItems = items;
+
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+        const supabase = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.SUPABASE_SERVICE_ROLE_KEY,
+          { auth: { autoRefreshToken: false, persistSession: false } }
+        );
+
+        const { data: eventData } = await supabase
+          .from('events')
+          .select('id, title, status, ticket_types(*)')
+          .or(`id.eq.${eventId},slug.eq.${eventId}`)
+          .single();
+
+        if (eventData) {
+          finalEventTitle = eventData.title || finalEventTitle;
+          const officialTicketTypes: any[] = eventData.ticket_types || [];
+
+          if (officialTicketTypes.length > 0 && Array.isArray(items)) {
+            let sum = 0;
+            validatedItems = items.map((it: any) => {
+              const matched = officialTicketTypes.find(
+                (tt: any) =>
+                  tt.id === it.ticketTypeId ||
+                  (tt.name && it.ticketTypeName && tt.name.trim().toLowerCase() === it.ticketTypeName.trim().toLowerCase())
+              ) || officialTicketTypes[0];
+
+              const unitPrice = Number(matched.price) || 0;
+              const quantity = Math.max(1, Number(it.quantity) || 1);
+              const subtotal = unitPrice * quantity;
+              sum += subtotal;
+
+              return {
+                ...it,
+                ticketTypeId: matched.id,
+                ticketTypeName: matched.name,
+                unitPrice,
+                subtotal,
+              };
+            });
+
+            if (sum > 0) {
+              calculatedAmount = sum;
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.warn('Vérification Supabase des tarifs:', dbErr);
+      }
+    }
+
+    const finalAmount = calculatedAmount > 0 ? calculatedAmount : Math.round(Number(totalPrice) || 0);
+
+    // Appel au gestionnaire de passerelle avec le montant officiel certifié
     const initiationResult = await paymentGateway.initiateCheckout(provider, {
       paymentId,
-      amount: Math.round(totalPrice),
+      amount: finalAmount,
       currency: 'XOF',
-      description: `Billets pour ${eventTitle || 'Événement'} (${items.length} catégorie(s))`,
+      description: `Billets pour ${finalEventTitle} (${validatedItems.length} catégorie(s))`,
       customerName,
       customerPhone,
       customerEmail: customerEmail || undefined,
@@ -81,12 +140,12 @@ export async function POST(req: Request) {
       metadata: {
         orderRef,
         eventId,
-        eventTitle,
+        eventTitle: finalEventTitle,
         customerName,
         customerPhone,
         customerEmail,
-        items,
-        totalPrice,
+        items: validatedItems,
+        totalPrice: finalAmount,
         paymentMethod: paymentMethod || 'PAYTECH',
       },
     });

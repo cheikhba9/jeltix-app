@@ -50,19 +50,57 @@ export default function CheckoutPage({
   const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && event) {
+      let resolvedData: {
+        eventId: string;
+        items: OrderItem[];
+        totalPrice: number;
+      } | null = null;
+
       const stored = sessionStorage.getItem('jeltix_checkout') || sessionStorage.getItem('foutaticket_checkout');
       if (stored) {
         try {
-          setCheckoutData(JSON.parse(stored));
+          const parsed = JSON.parse(stored);
+          // Vérifier impérativement que les données stockées correspondent à CET événement précis
+          if (parsed && (parsed.eventId === event.id || parsed.eventSlug === event.slug)) {
+            const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
+            if (rawItems.length > 0) {
+              // Réaligner les prix de chaque billet sur les prix officiels fixés sur l'événement
+              const syncedItems: OrderItem[] = rawItems.map((it: any) => {
+                const matchedType = event.ticketTypes.find(
+                  (tt) => tt.id === it.ticketTypeId || tt.name.toLowerCase() === it.ticketTypeName?.toLowerCase()
+                ) || event.ticketTypes[0];
+
+                const authoritativePrice = matchedType ? Number(matchedType.price) || 0 : Number(it.unitPrice) || 0;
+                const qty = Math.max(1, Number(it.quantity) || 1);
+
+                return {
+                  ticketTypeId: matchedType?.id || it.ticketTypeId,
+                  ticketTypeName: matchedType?.name || it.ticketTypeName || 'Billet Standard',
+                  quantity: qty,
+                  unitPrice: authoritativePrice,
+                  subtotal: authoritativePrice * qty,
+                };
+              });
+
+              const total = syncedItems.reduce((sum, item) => sum + item.subtotal, 0);
+              resolvedData = {
+                eventId: event.id,
+                items: syncedItems,
+                totalPrice: total,
+              };
+            }
+          }
         } catch {
-          // fallback handled below
+          // Si le format est corrompu, fallback sur le billet par défaut de l'événement
         }
       }
-      if (!stored && event) {
+
+      // Si aucune sélection préalable valide pour cet événement, prendre le premier tarif configuré
+      if (!resolvedData) {
         const firstType = event.ticketTypes?.[0];
-        const unitPrice = firstType?.price || 500;
-        setCheckoutData({
+        const unitPrice = firstType ? Number(firstType.price) || 0 : 0;
+        resolvedData = {
           eventId: event.id,
           items: [
             {
@@ -74,8 +112,13 @@ export default function CheckoutPage({
             },
           ],
           totalPrice: unitPrice,
-        });
+        };
       }
+
+      setCheckoutData(resolvedData);
+      try {
+        sessionStorage.setItem('jeltix_checkout', JSON.stringify(resolvedData));
+      } catch {}
     }
   }, [event]);
 

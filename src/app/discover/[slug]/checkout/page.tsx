@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useJeltixStore } from '@/lib/store/jeltix-store';
 import { formatFCFA, isEventClosedOrPast } from '@/lib/utils/format';
 import { playSuccessBeep } from '@/lib/audio/sound-effects';
 import { PublicHeader } from '@/components/layout/PublicHeader';
 import { Footer } from '@/components/layout/Footer';
+import { PaymentFailureModal } from '@/components/checkout/PaymentFailureModal';
 import { PaymentMethod, OrderItem } from '@/types';
 import { CheckoutSchema } from '@/lib/validations';
 import { checkRateLimit } from '@/lib/security/rate-limit';
@@ -36,6 +37,13 @@ export default function CheckoutPage({
   const { getEventBySlug, purchaseTickets } = useJeltixStore();
   const event = getEventBySlug(resolvedParams.slug);
 
+  const searchParams = useSearchParams();
+  const paymentFailedParam =
+    searchParams.get('payment_failed') === '1' ||
+    searchParams.get('cancelled') === '1' ||
+    searchParams.get('payment_status') === 'failed';
+  const orderRefParam = searchParams.get('ref') || searchParams.get('orderRef');
+
   const [checkoutData, setCheckoutData] = useState<{
     eventId: string;
     items: OrderItem[];
@@ -48,6 +56,42 @@ export default function CheckoutPage({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('PAYTECH');
   const [isProcessing, setIsProcessing] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [showFailureModal, setShowFailureModal] = useState(false);
+  const [failureError, setFailureError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (paymentFailedParam) {
+      setShowFailureModal(true);
+      if (typeof window !== 'undefined') {
+        const pendingRaw = sessionStorage.getItem('jeltix_pending_payment');
+        if (pendingRaw) {
+          try {
+            const parsed = JSON.parse(pendingRaw);
+            if (parsed.customerName && !customerName) setCustomerName(parsed.customerName);
+            if (parsed.customerPhone && !customerPhone) setCustomerPhone(parsed.customerPhone);
+            if (parsed.customerEmail && !customerEmail) setCustomerEmail(parsed.customerEmail);
+          } catch {}
+        }
+      }
+    }
+  }, [paymentFailedParam]);
+
+  const handleCloseFailureModal = () => {
+    setShowFailureModal(false);
+    setFailureError(null);
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment_failed');
+      url.searchParams.delete('cancelled');
+      url.searchParams.delete('payment_status');
+      url.searchParams.delete('ref');
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
+
+  const handleRetryPayment = () => {
+    handleCloseFailureModal();
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined' && event) {
@@ -213,14 +257,15 @@ export default function CheckoutPage({
           items: checkoutData.items,
           totalPrice: checkoutData.totalPrice,
           returnUrl: `${window.location.origin}/discover/${event.slug}/checkout/success`,
-          cancelUrl: `${window.location.origin}/discover/${event.slug}?payment_cancelled=1`,
+          cancelUrl: `${window.location.origin}/discover/${event.slug}/checkout?payment_failed=1`,
         }),
       });
 
       const data = await res.json();
 
       if (!data.success) {
-        setValidationError(data.error || 'Erreur lors de l’initialisation auprès de PayTech');
+        setFailureError(data.error || 'Erreur lors de l’initialisation auprès de PayTech');
+        setShowFailureModal(true);
         setIsProcessing(false);
         return;
       }
@@ -250,11 +295,15 @@ export default function CheckoutPage({
       }
 
       // Si PayTech n'a pas renvoyé d'URL de redirection valide
-      setValidationError(data.error || 'Impossible d’accéder au guichet de paiement PayTech. Veuillez réessayer.');
+      setFailureError(data.error || 'Impossible d’accéder au guichet de paiement PayTech. Veuillez réessayer.');
+      setShowFailureModal(true);
       setIsProcessing(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erreur lors de l’initialisation auprès de PayTech:', err);
-      setValidationError('Une erreur de communication est survenue lors de l’accès à PayTech. Veuillez vérifier votre connexion et réessayer.');
+      setFailureError(
+        'Une interruption est survenue lors de l’accès à PayTech. Veuillez vérifier votre connexion ou votre solde et réessayer.'
+      );
+      setShowFailureModal(true);
       setIsProcessing(false);
     }
   };
@@ -424,6 +473,17 @@ export default function CheckoutPage({
           </div>
         </form>
       </main>
+
+      {/* Boîte de dialogue d'information et d'assistance en cas d'échec de paiement */}
+      <PaymentFailureModal
+        isOpen={showFailureModal}
+        onClose={handleCloseFailureModal}
+        onRetry={handleRetryPayment}
+        errorMessage={failureError}
+        orderRef={orderRefParam}
+        customerPhone={customerPhone}
+        amount={checkoutData?.totalPrice}
+      />
 
       <Footer />
     </div>

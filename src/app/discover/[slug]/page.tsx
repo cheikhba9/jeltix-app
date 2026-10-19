@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, use } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useJeltixStore } from '@/lib/store/jeltix-store';
 import { formatFCFA, formatDateFrench, formatDateWithDay, isEventClosedOrPast } from '@/lib/utils/format';
 import { PublicHeader } from '@/components/layout/PublicHeader';
 import { Footer } from '@/components/layout/Footer';
+import { PaymentFailureModal } from '@/components/checkout/PaymentFailureModal';
 import Link from 'next/link';
 import {
   Calendar,
@@ -38,6 +39,33 @@ export default function PublicEventDetailPage({
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [copiedLink, setCopiedLink] = useState(false);
   const isClosed = isEventClosedOrPast(event);
+
+  const searchParams = useSearchParams();
+  const paymentCancelledParam =
+    searchParams.get('payment_cancelled') === '1' ||
+    searchParams.get('cancelled') === '1' ||
+    searchParams.get('payment_failed') === '1';
+  const orderRefParam = searchParams.get('ref') || searchParams.get('orderRef');
+
+  const [showFailureModal, setShowFailureModal] = useState(false);
+
+  useEffect(() => {
+    if (paymentCancelledParam) {
+      setShowFailureModal(true);
+    }
+  }, [paymentCancelledParam]);
+
+  const handleCloseFailureModal = () => {
+    setShowFailureModal(false);
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment_cancelled');
+      url.searchParams.delete('cancelled');
+      url.searchParams.delete('payment_failed');
+      url.searchParams.delete('ref');
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
 
   if (!event) {
     if (events.length === 0) {
@@ -431,6 +459,17 @@ export default function PublicEventDetailPage({
           </div>
         </div>
       </main>
+
+      {/* Boîte de dialogue d'information et d'assistance en cas d'échec de paiement */}
+      <PaymentFailureModal
+        isOpen={showFailureModal}
+        onClose={handleCloseFailureModal}
+        onRetry={() => {
+          handleCloseFailureModal();
+          router.push(`/discover/${resolvedParams.slug}/checkout`);
+        }}
+        orderRef={orderRefParam}
+      />
 
       <Footer />
     </div>

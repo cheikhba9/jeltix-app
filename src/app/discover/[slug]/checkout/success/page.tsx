@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { PublicHeader } from '@/components/layout/PublicHeader';
 import { Footer } from '@/components/layout/Footer';
+import { PaymentFailureModal } from '@/components/checkout/PaymentFailureModal';
 import { useJeltixStore } from '@/lib/store/jeltix-store';
 import { formatFCFA } from '@/lib/utils/format';
 import { playSuccessBeep } from '@/lib/audio/sound-effects';
@@ -45,6 +46,7 @@ export default function CheckoutSuccessPage({
   const [orderData, setOrderData] = useState<any>(null);
   const [issuedTickets, setIssuedTickets] = useState<any[]>([]);
   const [retryCount, setRetryCount] = useState(0);
+  const [showFailureModal, setShowFailureModal] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -128,6 +130,13 @@ export default function CheckoutSuccessPage({
           }
         }
 
+        // Si l'API retourne explicitement un statut d'échec ou d'annulation
+        if (data.status === 'failed' || data.status === 'cancelled') {
+          setStatus('failed');
+          setShowFailureModal(true);
+          return;
+        }
+
         // Continuer le polling si pending
         if (retryCount < 8) {
           setStatus('pending');
@@ -135,7 +144,8 @@ export default function CheckoutSuccessPage({
             if (isMounted) setRetryCount((prev) => prev + 1);
           }, 3000);
         } else {
-          setStatus('pending');
+          setStatus('failed');
+          setShowFailureModal(true);
         }
       } catch (err) {
         console.error('Erreur vérification paiement:', err);
@@ -145,6 +155,7 @@ export default function CheckoutSuccessPage({
           }, 3000);
         } else {
           setStatus('failed');
+          setShowFailureModal(true);
         }
       }
     }
@@ -328,22 +339,39 @@ export default function CheckoutSuccessPage({
               Le paiement n'a pas pu être validé automatiquement. Si vous avez bien été débité, ne vous inquiétez pas : munissez-vous de votre numéro de téléphone et vérifiez l'espace "Mes Billets".
             </p>
             <div className="pt-2 flex flex-col gap-2">
-              <Link
-                href="/tickets"
-                className="w-full py-3 rounded-xl bg-primary text-on-primary font-bold text-xs uppercase tracking-wider text-center"
+              <button
+                type="button"
+                onClick={() => setShowFailureModal(true)}
+                className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider text-center cursor-pointer transition-colors shadow-md"
               >
-                Rechercher avec mon Téléphone
+                Comprendre l'échec & Réessayer
+              </button>
+              <Link
+                href={`/discover/${resolvedParams.slug}/checkout`}
+                className="w-full py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs uppercase tracking-wider text-center transition-colors"
+              >
+                Retourner à la caisse (Checkout)
               </Link>
               <Link
-                href={`/discover/${resolvedParams.slug}`}
-                className="w-full py-2.5 rounded-xl bg-surface-container text-on-surface text-xs font-semibold text-center"
+                href="/tickets"
+                className="w-full py-2.5 rounded-xl bg-surface-container text-on-surface text-xs font-semibold text-center transition-colors"
               >
-                Retourner à l'événement
+                Vérifier avec mon Téléphone
               </Link>
             </div>
           </div>
         )}
       </main>
+
+      <PaymentFailureModal
+        isOpen={showFailureModal}
+        onClose={() => setShowFailureModal(false)}
+        onRetry={() => router.push(`/discover/${resolvedParams.slug}/checkout?retry=1`)}
+        errorMessage="La transaction n'a pas pu être validée auprès de l'opérateur Mobile Money."
+        orderRef={refParam}
+        customerPhone={orderData?.customerPhone}
+        amount={orderData?.totalAmount}
+      />
 
       <Footer />
     </div>

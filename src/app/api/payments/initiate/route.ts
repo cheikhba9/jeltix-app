@@ -63,8 +63,8 @@ export async function POST(req: Request) {
       `/tickets?ref=${orderRef}&payment=success`
     );
     let failureCancelUrl = formatUrl(
-      cancelUrl ? `${cancelUrl}${cancelUrl.includes('?') ? '&' : '?'}ref=${orderRef}&cancelled=1` : undefined,
-      `/discover?cancelled=1`
+      cancelUrl ? `${cancelUrl}${cancelUrl.includes('?') ? '&' : '?'}ref=${orderRef}&cancelled=1&payment_failed=1` : undefined,
+      `/discover?cancelled=1&payment_failed=1`
     );
 
     // Vérification et recalcul strict du montant officiel à partir des prix fixés sur l'événement en base

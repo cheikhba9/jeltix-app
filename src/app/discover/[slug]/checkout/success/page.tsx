@@ -52,24 +52,45 @@ export default function CheckoutSuccessPage({
 
     async function checkPaymentStatus() {
       try {
-        const queryParams = new URLSearchParams();
-        if (refParam) queryParams.set('ref', refParam);
-        if (tokenParam) queryParams.set('token', tokenParam);
+        const isSuccessParam = searchParams.get('payment') === 'success';
+        const pendingRaw = typeof window !== 'undefined' ? sessionStorage.getItem('jeltix_pending_payment') : null;
+        let pendingData = null;
+        if (pendingRaw) {
+          try {
+            pendingData = JSON.parse(pendingRaw);
+          } catch {}
+        }
 
-        const res = await fetch(`/api/payments/verify?${queryParams.toString()}`);
+        const res = await fetch('/api/payments/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ref: refParam,
+            token: tokenParam,
+            isSuccess: isSuccessParam,
+            eventSlug: resolvedParams.slug,
+            pendingPayment: pendingData,
+          }),
+        });
         const data = await res.json();
 
         if (!isMounted) return;
 
-        if (data.status === 'completed' || (data.order && data.order.paymentStatus === 'COMPLETED')) {
+        const isCompleted =
+          data.status === 'completed' ||
+          (data.order && (data.order.paymentStatus === 'COMPLETED' || data.order.payment_status === 'COMPLETED'));
+
+        if (isCompleted) {
           setStatus('completed');
           setOrderData(data.order);
           const tList = data.tickets || [];
           setIssuedTickets(tList);
 
-          // Sauvegarder dans localStorage pour "Mes Billets"
-          if (typeof window !== 'undefined' && tList.length > 0) {
+          // Sauvegarder dans localStorage pour "Mes Billets" et nettoyer les caches de commande
+          if (typeof window !== 'undefined') {
             try {
+              sessionStorage.removeItem('jeltix_pending_payment');
+              sessionStorage.removeItem('jeltix_checkout');
               const existingCodes = JSON.parse(localStorage.getItem('jeltix_my_tickets') || '[]');
               const newCodes = tList.map((t: any) => t.ticketCode);
               const merged = Array.from(new Set([...newCodes, ...existingCodes]));

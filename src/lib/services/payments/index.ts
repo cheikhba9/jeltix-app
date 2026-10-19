@@ -25,13 +25,18 @@ export class PaymentGatewayManager {
   }
 
   getPaytechAdapter(): PaytechAdapter | null {
-    const apiKey = process.env.PAYTECH_API_KEY || process.env.NEXT_PUBLIC_PAYTECH_API_KEY;
-    const apiSecret = process.env.PAYTECH_API_SECRET;
+    const apiKey =
+      process.env.PAYTECH_API_KEY ||
+      process.env.NEXT_PUBLIC_PAYTECH_API_KEY ||
+      '342dbd07559e70f371ad749fb0559e1574fe691535f7f3540cb3cf2b0b8eead9';
+    const apiSecret =
+      process.env.PAYTECH_API_SECRET ||
+      '3bc398e8667a5fba6583e26e5238cbeeed9dae04da766f2f075f8a68b5bd6fda';
     if (apiKey && apiSecret) {
       return new PaytechAdapter({
         apiKey,
         apiSecret,
-        env: (process.env.PAYTECH_ENV as 'test' | 'prod') || (process.env.NODE_ENV === 'production' ? 'prod' : 'test'),
+        env: (process.env.PAYTECH_ENV as 'test' | 'prod') || 'test',
       });
     }
     return null;
@@ -41,24 +46,29 @@ export class PaymentGatewayManager {
     provider: PaymentProvider,
     request: PaymentInitiationRequest
   ): Promise<PaymentInitiationResponse> {
-    // 1. PayTech (Passerelle Mobile Money Sénégal : Wave, Orange Money, Free Money)
-    const paytechApiKey = process.env.PAYTECH_API_KEY || process.env.NEXT_PUBLIC_PAYTECH_API_KEY;
-    const paytechApiSecret = process.env.PAYTECH_API_SECRET;
+    // 1. PayTech (Passerelle Mobile Money Sénégal : Wave, Orange Money, Free Money, Carte)
+    const paytechApiKey =
+      process.env.PAYTECH_API_KEY ||
+      process.env.NEXT_PUBLIC_PAYTECH_API_KEY ||
+      '342dbd07559e70f371ad749fb0559e1574fe691535f7f3540cb3cf2b0b8eead9';
+    const paytechApiSecret =
+      process.env.PAYTECH_API_SECRET ||
+      '3bc398e8667a5fba6583e26e5238cbeeed9dae04da766f2f075f8a68b5bd6fda';
 
-    if (paytechApiKey && paytechApiSecret) {
-      const isMobileMoney = provider === 'PAYTECH' || provider === 'WAVE' || provider === 'ORANGE_MONEY' || provider === 'FREE_MONEY';
+    const isMobileMoney =
+      provider === 'PAYTECH' ||
+      provider === 'WAVE' ||
+      provider === 'ORANGE_MONEY' ||
+      provider === 'FREE_MONEY';
 
-      if (isMobileMoney) {
-        const adapter = new PaytechAdapter({
-          apiKey: paytechApiKey,
-          apiSecret: paytechApiSecret,
-          env: (process.env.PAYTECH_ENV as 'test' | 'prod') || (process.env.NODE_ENV === 'production' ? 'prod' : 'test'),
-        });
+    if (isMobileMoney && paytechApiKey && paytechApiSecret) {
+      const adapter = new PaytechAdapter({
+        apiKey: paytechApiKey,
+        apiSecret: paytechApiSecret,
+        env: (process.env.PAYTECH_ENV as 'test' | 'prod') || 'test',
+      });
 
-        // Ne pas restreindre target_payment : PayTech affiche son écran officiel
-        // de sélection complet (Wave, Orange Money, Free Money, Carte Bancaire)
-        return adapter.initiatePayment(request);
-      }
+      return adapter.initiatePayment(request);
     }
 
     // 2. Moneroo API
@@ -79,12 +89,11 @@ export class PaymentGatewayManager {
       }
     }
 
-    // 4. Fallback : Traitement instantané local (<200ms) pour mode hors-ligne / tests fluides
     return {
-      success: true,
+      success: false,
       paymentId: request.paymentId,
       provider,
-      checkoutUrl: undefined, // traité inline via direct purchaseTickets
+      error: 'Passerelle de paiement PayTech non disponible.',
     };
   }
 }

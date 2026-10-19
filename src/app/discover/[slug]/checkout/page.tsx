@@ -249,67 +249,13 @@ export default function CheckoutPage({
         return;
       }
 
-      // Fallback local instantané (si clés PayTech non définies ou mode démo)
-      const result = purchaseTickets({
-        eventId: event.id,
-        customerName: validation.data.customerName,
-        customerPhone: validation.data.customerPhone,
-        customerEmail: validation.data.customerEmail,
-        items: checkoutData.items,
-        paymentMethod,
-        channel: 'ONLINE',
-      });
-
-      // Stocker les billets localement pour un accès fluide dans "Mes Billets"
-      if (typeof window !== 'undefined') {
-        try {
-          const existingCodes = JSON.parse(localStorage.getItem('jeltix_my_tickets') || '[]');
-          const newCodes = result.generatedTickets.map((t) => t.ticketCode);
-          const merged = Array.from(new Set([...newCodes, ...existingCodes]));
-          localStorage.setItem('jeltix_my_tickets', JSON.stringify(merged));
-          localStorage.setItem('jeltix_customer_phone', validation.data.customerPhone);
-          localStorage.setItem('jeltix_customer_name', validation.data.customerName);
-        } catch {}
-      }
-
-      playSuccessBeep();
-      confetti({
-        particleCount: 100,
-        spread: 80,
-        origin: { y: 0.6 },
-        colors: ['#0038A8', '#4EED15', '#0D52D6', '#FFFFFF'],
-      });
-
+      // Si PayTech n'a pas renvoyé d'URL de redirection valide
+      setValidationError(data.error || 'Impossible d’accéder au guichet de paiement PayTech. Veuillez réessayer.');
       setIsProcessing(false);
-
-      const firstTicket = result.generatedTickets[0];
-      router.push(`/tickets/${firstTicket.ticketCode}`);
     } catch (err) {
-      console.warn('Fallback achat direct local:', err);
-      const result = purchaseTickets({
-        eventId: event.id,
-        customerName: validation.data.customerName,
-        customerPhone: validation.data.customerPhone,
-        customerEmail: validation.data.customerEmail,
-        items: checkoutData.items,
-        paymentMethod,
-        channel: 'ONLINE',
-      });
-
-      if (typeof window !== 'undefined') {
-        try {
-          const existingCodes = JSON.parse(localStorage.getItem('jeltix_my_tickets') || '[]');
-          const newCodes = result.generatedTickets.map((t) => t.ticketCode);
-          const merged = Array.from(new Set([...newCodes, ...existingCodes]));
-          localStorage.setItem('jeltix_my_tickets', JSON.stringify(merged));
-          localStorage.setItem('jeltix_customer_phone', validation.data.customerPhone);
-          localStorage.setItem('jeltix_customer_name', validation.data.customerName);
-        } catch {}
-      }
-
+      console.error('Erreur lors de l’initialisation auprès de PayTech:', err);
+      setValidationError('Une erreur de communication est survenue lors de l’accès à PayTech. Veuillez vérifier votre connexion et réessayer.');
       setIsProcessing(false);
-      const firstTicket = result.generatedTickets[0];
-      router.push(`/tickets/${firstTicket.ticketCode}`);
     }
   };
 

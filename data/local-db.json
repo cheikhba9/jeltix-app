@@ -13,7 +13,7 @@
       "description": "Événement majeur organisé au CEDEPS.",
       "status": "PUBLISHED",
       "totalCapacity": 250,
-      "soldCapacity": 8,
+      "soldCapacity": 9,
       "organizerId": "423252c8-59e7-4fba-9894-5a03f7cb76c4",
       "organizerName": "Organisateur Officiel",
       "ticketTypes": [
@@ -44,6 +44,23 @@
     }
   ],
   "tickets": [
+    {
+      "id": "b724f248-1fe0-439f-953e-5354fedb48fe",
+      "ticketCode": "JT-9575-L",
+      "orderId": "28533be7-c891-48a4-9da7-4412d4011e1b",
+      "eventId": "4ed74d43-1452-4ec5-b518-9e1a666ba201",
+      "eventTitle": "Soirée Dansante",
+      "ticketTypeId": "d829f3c9-e908-4082-8432-02a8fadbdd19",
+      "ticketTypeName": "Billet Standar",
+      "gateRecommendation": "Porte A - Entrée Principale",
+      "seatNumber": "Placement Libre",
+      "customerName": "Mamadou Ba",
+      "customerPhone": "+221 77 123 45 67",
+      "pricePaid": 2000,
+      "status": "VALID",
+      "qrData": "JT-9575-L",
+      "createdAt": "2026-10-19T10:17:28.718226+00:00"
+    },
     {
       "id": "92b39bfc-3e97-4b23-8ec6-70bdf4fe74cc",
       "ticketCode": "JT-7690-W",
@@ -431,6 +448,21 @@
     }
   ],
   "orders": [
+    {
+      "id": "28533be7-c891-48a4-9da7-4412d4011e1b",
+      "reference": "CMD-JT-2026-TEST-4291",
+      "eventId": "4ed74d43-1452-4ec5-b518-9e1a666ba201",
+      "eventTitle": "Soirée Dansante",
+      "customerName": "Mamadou Ba",
+      "customerPhone": "+221 77 123 45 67",
+      "customerEmail": "mamadou.ba@test.sn",
+      "items": [],
+      "totalAmount": 2000,
+      "paymentMethod": "WAVE",
+      "paymentStatus": "COMPLETED",
+      "channel": "ONLINE",
+      "createdAt": "2026-10-19T10:17:28.074387+00:00"
+    },
     {
       "id": "dfc014d2-4810-426b-b01d-4fb75cdeb906",
       "reference": "CMD-JT-2026-4298",

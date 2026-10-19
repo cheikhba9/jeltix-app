@@ -62,10 +62,15 @@ export class PaytechAdapter implements PaymentGatewayAdapter {
     const env = this.config.env ?? (process.env.NODE_ENV === 'production' ? 'prod' : 'test');
 
     // Résolution de l'URL IPN publique (PayTech exige impérativement https:// et rejette localhost)
-    let baseUrl =
+    let baseUrl = (
       process.env.PAYTECH_IPN_BASE_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
-      (typeof window !== 'undefined' ? window.location.origin : 'https://jeltix.com');
+      (typeof window !== 'undefined' ? window.location.origin : 'https://jeltix.com')
+    ).trim();
+
+    if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.slice(0, -1);
+    }
 
     if (!baseUrl || baseUrl.includes('localhost') || baseUrl.startsWith('http://')) {
       baseUrl = 'https://jeltix.com';
@@ -75,6 +80,10 @@ export class PaytechAdapter implements PaymentGatewayAdapter {
     if (ipnUrl.startsWith('http://')) {
       ipnUrl = ipnUrl.replace('http://', 'https://');
     }
+    ipnUrl = ipnUrl.replace(/([^:]\/)\/+/g, '$1');
+
+    const cleanSuccessUrl = (req.returnUrl || `${baseUrl}/tickets?payment=success`).replace(/([^:]\/)\/+/g, '$1');
+    const cleanCancelUrl = (req.cancelUrl || `${baseUrl}/discover?cancelled=1`).replace(/([^:]\/)\/+/g, '$1');
 
     // Métadonnées personnalisées stockées dans custom_field
     const customData = {
@@ -93,8 +102,8 @@ export class PaytechAdapter implements PaymentGatewayAdapter {
       command_name: req.description.slice(0, 200),
       env,
       ipn_url: ipnUrl,
-      success_url: req.returnUrl,
-      cancel_url: req.cancelUrl,
+      success_url: cleanSuccessUrl,
+      cancel_url: cleanCancelUrl,
       custom_field: JSON.stringify(customData),
     };
 

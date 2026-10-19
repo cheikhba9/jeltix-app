@@ -32,17 +32,24 @@ export async function POST(req: Request) {
     // Base URL pour les redirections
     const host = req.headers.get('host') || 'localhost:3000';
     const proto = req.headers.get('x-forwarded-proto') || 'https';
-    const origin = process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`;
+    let origin = (process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`).trim();
+    if (origin.endsWith('/')) {
+      origin = origin.slice(0, -1);
+    }
 
     // Guichet PayTech multi-opérateurs : le client choisit Wave, OM, Free ou Carte directement sur PayTech
     const provider: PaymentProvider = 'PAYTECH';
 
-    const successReturnUrl = returnUrl
+    let successReturnUrl = returnUrl
       ? `${returnUrl}${returnUrl.includes('?') ? '&' : '?'}ref=${orderRef}&payment=success`
       : `${origin}/tickets?ref=${orderRef}&payment=success`;
-    const failureCancelUrl = cancelUrl
+    let failureCancelUrl = cancelUrl
       ? `${cancelUrl}${cancelUrl.includes('?') ? '&' : '?'}ref=${orderRef}&cancelled=1`
       : `${origin}/discover?cancelled=1`;
+
+    // Éliminer toute double barre oblique dans le chemin pour respecter la validation PayTech
+    successReturnUrl = successReturnUrl.replace(/([^:]\/)\/+/g, '$1');
+    failureCancelUrl = failureCancelUrl.replace(/([^:]\/)\/+/g, '$1');
 
     // Appel au gestionnaire de passerelle
     const initiationResult = await paymentGateway.initiateCheckout(provider, {

@@ -305,12 +305,10 @@ export default function CheckoutPage({
               </div>
             )}
 
-            {/* Step 1: Client Coordinates */}
+            {/* Client Coordinates */}
             <div className="bg-surface-container-lowest rounded-3xl p-6 sm:p-8 border border-outline-variant/30 shadow-xs space-y-4">
               <h2 className="text-base font-black text-on-surface flex items-center gap-2 border-b border-outline-variant/20 pb-3">
-                <span className="w-7 h-7 rounded-lg bg-[#0038A8]/10 text-[#0038A8] flex items-center justify-center font-bold text-xs">
-                  1
-                </span>
+                <User className="w-4 h-4 text-primary" />
                 <span>Coordonnées du Spectateur</span>
               </h2>
 
@@ -371,69 +369,6 @@ export default function CheckoutPage({
                 </div>
               </div>
             </div>
-
-            {/* Step 2: Payment Provider */}
-            <div className="bg-surface-container-lowest rounded-3xl p-6 sm:p-8 border border-outline-variant/30 shadow-xs space-y-5">
-              <div className="flex items-center justify-between border-b border-outline-variant/20 pb-3">
-                <h2 className="text-base font-black text-on-surface flex items-center gap-2">
-                  <span className="w-7 h-7 rounded-lg bg-[#0038A8]/10 text-[#0038A8] flex items-center justify-center font-bold text-xs">
-                    2
-                  </span>
-                  <span>Passerelle de Paiement Sécurisée</span>
-                </h2>
-                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 px-2.5 py-1 rounded-full flex items-center gap-1 font-mono">
-                  <ShieldCheck className="w-3 h-3" />
-                  <span>PayTech SN</span>
-                </span>
-              </div>
-
-              {/* PayTech Unified Container */}
-              <div className="p-5 rounded-2xl bg-surface border-2 border-primary/20 space-y-4">
-                <div className="flex items-start gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-[#0038A8]/10 text-[#0038A8] flex items-center justify-center shrink-0">
-                    <Smartphone className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-on-surface">
-                      Choix du moyen de paiement sur PayTech
-                    </h3>
-                    <p className="text-xs text-on-surface-variant mt-0.5 leading-relaxed">
-                      En cliquant sur <strong className="text-on-surface">Payer</strong>, vous serez automatiquement redirigé vers l'interface officielle PayTech pour choisir votre mode de règlement :
-                    </p>
-                  </div>
-                </div>
-
-                {/* Operator Badges */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-                  <div className="p-3 rounded-xl bg-surface-container/60 border border-[#1DC9FE]/40 flex items-center justify-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#1DC9FE]" />
-                    <span className="text-xs font-black text-on-surface font-mono">Wave</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-surface-container/60 border border-[#FF7900]/40 flex items-center justify-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#FF7900]" />
-                    <span className="text-xs font-black text-on-surface font-mono">Orange Money</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-surface-container/60 border border-[#E60000]/40 flex items-center justify-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#E60000]" />
-                    <span className="text-xs font-black text-on-surface font-mono">Free Money</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-surface-container/60 border border-primary/40 flex items-center justify-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-primary" />
-                    <span className="text-xs font-black text-on-surface font-mono">Carte Visa / MC</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-1 flex items-center justify-between text-[11px] text-on-surface-variant">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-                  Passerelle certifiée PCI-DSS PayTech Sénégal
-                </span>
-                <span className="font-mono text-[10px] text-on-surface-variant/70">
-                  Devise : FCFA (XOF)
-                </span>
-              </div>
-            </div>
           </div>
 
           {/* Right Column: Order Summary & Confirmation Button */}
@@ -485,15 +420,15 @@ export default function CheckoutPage({
                 ) : (
                   <>
                     <Lock className="w-4 h-4" />
-                    <span>Payer {formatFCFA(checkoutData.totalPrice)} FCFA sur PayTech</span>
+                    <span>Payer {formatFCFA(checkoutData.totalPrice)} FCFA</span>
                   </>
                 )}
               </button>
 
               <div className="text-center pt-2">
-                <p className="text-[10px] text-on-surface-variant flex items-center justify-center gap-1">
+                <p className="text-[10px] text-on-surface-variant flex items-center justify-center gap-1 font-medium">
                   <ShieldCheck className="w-3.5 h-3.5 text-[#2CA808]" />
-                  <span>Transaction cryptée & QR Code officiel délivré aussitôt</span>
+                  <span>Redirection sécurisée vers PayTech (Wave, Orange Money, Free, Carte)</span>
                 </p>
               </div>
             </div>

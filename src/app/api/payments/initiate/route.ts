@@ -52,10 +52,12 @@ export async function POST(req: Request) {
       targetPayment = 'Carte Bancaire';
     }
 
-    const successReturnUrl =
-      returnUrl || `${origin}/tickets?ref=${orderRef}&payment=success`;
-    const failureCancelUrl =
-      cancelUrl || `${origin}/discover?cancelled=1`;
+    const successReturnUrl = returnUrl
+      ? `${returnUrl}${returnUrl.includes('?') ? '&' : '?'}ref=${orderRef}&payment=success`
+      : `${origin}/tickets?ref=${orderRef}&payment=success`;
+    const failureCancelUrl = cancelUrl
+      ? `${cancelUrl}${cancelUrl.includes('?') ? '&' : '?'}ref=${orderRef}&cancelled=1`
+      : `${origin}/discover?cancelled=1`;
 
     // Appel au gestionnaire de passerelle
     const initiationResult = await paymentGateway.initiateCheckout(provider, {

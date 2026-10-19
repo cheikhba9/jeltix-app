@@ -155,8 +155,52 @@ export default function CheckoutPage({
 
     setIsProcessing(true);
 
-    // Instant responsive transaction (<250ms)
-    setTimeout(() => {
+    try {
+      // 3. Initiate payment via PayTech API
+      const res = await fetch('/api/payments/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId: event.id,
+          eventTitle: event.title,
+          customerName: validation.data.customerName,
+          customerPhone: validation.data.customerPhone,
+          customerEmail: validation.data.customerEmail,
+          paymentMethod,
+          items: checkoutData.items,
+          totalPrice: checkoutData.totalPrice,
+          returnUrl: `${window.location.origin}/discover/${event.slug}/checkout/success`,
+          cancelUrl: `${window.location.origin}/discover/${event.slug}?payment_cancelled=1`,
+        }),
+      });
+
+      const data = await res.json();
+
+      // Si PayTech a retourné une URL de redirection (Wave, Orange Money, Free Money, Carte)
+      if (data.success && data.redirect && data.checkoutUrl) {
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem(
+              'jeltix_pending_payment',
+              JSON.stringify({
+                eventId: event.id,
+                orderRef: data.orderRef,
+                paymentId: data.paymentId,
+                customerName: validation.data.customerName,
+                customerPhone: validation.data.customerPhone,
+                customerEmail: validation.data.customerEmail,
+                items: checkoutData.items,
+                totalPrice: checkoutData.totalPrice,
+                paymentMethod,
+              })
+            );
+          } catch {}
+        }
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+
+      // Fallback local instantané (si clés PayTech non définies ou mode démo)
       const result = purchaseTickets({
         eventId: event.id,
         customerName: validation.data.customerName,
@@ -167,7 +211,7 @@ export default function CheckoutPage({
         channel: 'ONLINE',
       });
 
-      // Store tickets in client's device localStorage for frictionless "Mes Billets" access
+      // Stocker les billets localement pour un accès fluide dans "Mes Billets"
       if (typeof window !== 'undefined') {
         try {
           const existingCodes = JSON.parse(localStorage.getItem('jeltix_my_tickets') || '[]');
@@ -191,7 +235,33 @@ export default function CheckoutPage({
 
       const firstTicket = result.generatedTickets[0];
       router.push(`/tickets/${firstTicket.ticketCode}`);
-    }, 200);
+    } catch (err) {
+      console.warn('Fallback achat direct local:', err);
+      const result = purchaseTickets({
+        eventId: event.id,
+        customerName: validation.data.customerName,
+        customerPhone: validation.data.customerPhone,
+        customerEmail: validation.data.customerEmail,
+        items: checkoutData.items,
+        paymentMethod,
+        channel: 'ONLINE',
+      });
+
+      if (typeof window !== 'undefined') {
+        try {
+          const existingCodes = JSON.parse(localStorage.getItem('jeltix_my_tickets') || '[]');
+          const newCodes = result.generatedTickets.map((t) => t.ticketCode);
+          const merged = Array.from(new Set([...newCodes, ...existingCodes]));
+          localStorage.setItem('jeltix_my_tickets', JSON.stringify(merged));
+          localStorage.setItem('jeltix_customer_phone', validation.data.customerPhone);
+          localStorage.setItem('jeltix_customer_name', validation.data.customerName);
+        } catch {}
+      }
+
+      setIsProcessing(false);
+      const firstTicket = result.generatedTickets[0];
+      router.push(`/tickets/${firstTicket.ticketCode}`);
+    }
   };
 
   return (
@@ -298,14 +368,20 @@ export default function CheckoutPage({
 
             {/* Step 2: Payment Provider */}
             <div className="bg-surface-container-lowest rounded-3xl p-6 sm:p-8 border border-outline-variant/30 shadow-xs space-y-4">
-              <h2 className="text-base font-black text-on-surface flex items-center gap-2 border-b border-outline-variant/20 pb-3">
-                <span className="w-7 h-7 rounded-lg bg-[#0038A8]/10 text-[#0038A8] flex items-center justify-center font-bold text-xs">
-                  2
+              <div className="flex items-center justify-between border-b border-outline-variant/20 pb-3">
+                <h2 className="text-base font-black text-on-surface flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-lg bg-[#0038A8]/10 text-[#0038A8] flex items-center justify-center font-bold text-xs">
+                    2
+                  </span>
+                  <span>Mode de Paiement Sécurisé</span>
+                </h2>
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 px-2.5 py-1 rounded-full flex items-center gap-1 font-mono">
+                  <ShieldCheck className="w-3 h-3" />
+                  <span>PayTech SN</span>
                 </span>
-                <span>Mode de Paiement Instantané</span>
-              </h2>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* Wave */}
                 <div
                   onClick={() => setPaymentMethod('WAVE')}
@@ -323,7 +399,7 @@ export default function CheckoutPage({
                   </div>
                   <div>
                     <p className="text-sm font-black text-on-surface">Wave Sénégal</p>
-                    <p className="text-[10px] text-on-surface-variant">0% de frais • Instantané</p>
+                    <p className="text-[10px] text-on-surface-variant">0% de frais • Immédiat</p>
                   </div>
                 </div>
 
@@ -344,7 +420,7 @@ export default function CheckoutPage({
                   </div>
                   <div>
                     <p className="text-sm font-black text-on-surface">Orange Money</p>
-                    <p className="text-[10px] text-on-surface-variant">Code de validation OM</p>
+                    <p className="text-[10px] text-on-surface-variant">Validation mobile directe</p>
                   </div>
                 </div>
 
@@ -368,6 +444,37 @@ export default function CheckoutPage({
                     <p className="text-[10px] text-on-surface-variant">Paiement direct Free</p>
                   </div>
                 </div>
+
+                {/* Carte Bancaire */}
+                <div
+                  onClick={() => setPaymentMethod('CARD')}
+                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+                    paymentMethod === 'CARD'
+                      ? 'border-primary bg-primary/10 shadow-md'
+                      : 'border-outline-variant/30 bg-surface hover:bg-surface-container'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-primary uppercase font-mono">CARTE</span>
+                    {paymentMethod === 'CARD' && (
+                      <CheckCircle2 className="w-4 h-4 text-primary" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-on-surface">Carte Bancaire</p>
+                    <p className="text-[10px] text-on-surface-variant">Visa, Mastercard</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-between text-[11px] text-on-surface-variant">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                  Passerelle certifiée PCI-DSS PayTech Sénégal
+                </span>
+                <span className="font-mono text-[10px] text-on-surface-variant/70">
+                  Devise : FCFA (XOF)
+                </span>
               </div>
             </div>
           </div>

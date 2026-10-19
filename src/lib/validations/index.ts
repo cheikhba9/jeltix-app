@@ -37,7 +37,7 @@ export const CheckoutSchema = z.object({
     .email('Adresse email invalide')
     .optional()
     .or(z.literal('')),
-  paymentMethod: z.enum(['WAVE', 'ORANGE_MONEY', 'FREE_MONEY', 'CASH', 'CREDIT_CARD']),
+  paymentMethod: z.enum(['WAVE', 'ORANGE_MONEY', 'FREE_MONEY', 'CASH', 'CREDIT_CARD', 'CARD', 'PAYTECH']),
   items: z
     .array(
       z.object({

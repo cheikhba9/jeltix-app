@@ -9,7 +9,7 @@ export type UserRole =
 export type EventStatus = 'PUBLISHED' | 'DRAFT' | 'CLOSED';
 export type TicketStatus = 'VALID' | 'USED' | 'CANCELLED';
 export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
-export type PaymentMethod = 'WAVE' | 'ORANGE_MONEY' | 'FREE_MONEY' | 'CASH';
+export type PaymentMethod = 'WAVE' | 'ORANGE_MONEY' | 'FREE_MONEY' | 'CASH' | 'PAYTECH' | 'CARD';
 export type ScanResultType = 'VALID' | 'ALREADY_SCANNED' | 'INVALID';
 
 export interface UserProfile {

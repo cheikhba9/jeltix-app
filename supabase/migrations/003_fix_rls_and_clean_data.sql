@@ -50,10 +50,11 @@ CREATE POLICY "Public full access scans" ON scans FOR ALL USING (true) WITH CHEC
 -- 4. Insertion des 4 comptes administrateurs officiels réels
 INSERT INTO profiles (id, email, full_name, phone, role, organization, is_active)
 VALUES 
-  ('a0000000-0000-0000-0000-000000000001', 'admin@jeltix.sn', 'Admin Jël Tix', '+221 77 000 00 01', 'SUPER_ADMIN', 'Jël Tix SAS', TRUE),
-  ('a0000000-0000-0000-0000-000000000002', 'admin@foutaticket.sn', 'Super Administrateur', '+221 77 000 00 00', 'SUPER_ADMIN', 'Jël Tix & FoutaTicket', TRUE),
-  ('a0000000-0000-0000-0000-000000000003', 'mamadoucheikhba9@gmail.com', 'Mamadou Cheikh Ba', '+221 77 000 00 02', 'SUPER_ADMIN', 'Jël Tix SAS', TRUE),
-  ('a0000000-0000-0000-0000-000000000004', 'mcbfd9@gmail.com', 'Mamadou Cheikh Ba', '+221 77 000 00 03', 'SUPER_ADMIN', 'Jël Tix SAS', TRUE)
+  ('a0000000-0000-0000-0000-000000000001', 'admin@jeltix.sn', 'Admin Jël Tix', '+221 76 402 74 68', 'SUPER_ADMIN', 'Jël Tix SAS', TRUE),
+  ('a0000000-0000-0000-0000-000000000002', 'admin@foutaticket.sn', 'Super Administrateur', '+221 76 402 74 68', 'SUPER_ADMIN', 'Jël Tix & FoutaTicket', TRUE),
+  ('a0000000-0000-0000-0000-000000000003', 'mamadoucheikhba9@gmail.com', 'Mamadou Cheikh Ba', '+221 76 402 74 68', 'SUPER_ADMIN', 'Jël Tix SAS', TRUE),
+  ('a0000000-0000-0000-0000-000000000004', 'mcbfd9@gmail.com', 'Mamadou Cheikh Ba', '+221 76 402 74 68', 'SUPER_ADMIN', 'Jël Tix SAS', TRUE)
 ON CONFLICT (email) DO UPDATE SET 
+  phone = EXCLUDED.phone, 
   role = 'SUPER_ADMIN',
   is_active = TRUE;

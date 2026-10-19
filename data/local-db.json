@@ -13,7 +13,7 @@
       "description": "Événement majeur organisé au CEDEPS.",
       "status": "PUBLISHED",
       "totalCapacity": 250,
-      "soldCapacity": 9,
+      "soldCapacity": 15,
       "organizerId": "423252c8-59e7-4fba-9894-5a03f7cb76c4",
       "organizerName": "Organisateur Officiel",
       "ticketTypes": [
@@ -44,6 +44,57 @@
     }
   ],
   "tickets": [
+    {
+      "id": "7efdf865-5f7c-4747-87fc-8f3ff87628ab",
+      "ticketCode": "JT-5916-D",
+      "orderId": "734db2e4-29c0-4390-80a2-84501916801a",
+      "eventId": "4ed74d43-1452-4ec5-b518-9e1a666ba201",
+      "eventTitle": "Soirée Dansante",
+      "ticketTypeId": "37dcb8c3-1fc7-4a98-a36d-5ca92677cf26",
+      "ticketTypeName": "Billet VIP",
+      "gateRecommendation": "Porte C - VIP",
+      "seatNumber": "Place 194",
+      "customerName": "Client Guichet",
+      "customerPhone": "+221 76 402 74 68",
+      "pricePaid": 5000,
+      "status": "VALID",
+      "qrData": "JELTIX:JT-5916-D:4ed74d43-1452-4ec5-b518-9e1a666ba201:VALID",
+      "createdAt": "2026-10-19T13:06:49.494256+00:00"
+    },
+    {
+      "id": "198e5586-c704-4ad9-83bf-d2e1c07ee03a",
+      "ticketCode": "JT-3694-K",
+      "orderId": "734db2e4-29c0-4390-80a2-84501916801a",
+      "eventId": "4ed74d43-1452-4ec5-b518-9e1a666ba201",
+      "eventTitle": "Soirée Dansante",
+      "ticketTypeId": "d829f3c9-e908-4082-8432-02a8fadbdd19",
+      "ticketTypeName": "Billet Standar",
+      "gateRecommendation": "Porte A - Entrée Principale",
+      "seatNumber": "Place 511",
+      "customerName": "Client Guichet",
+      "customerPhone": "+221 76 402 74 68",
+      "pricePaid": 2000,
+      "status": "VALID",
+      "qrData": "JELTIX:JT-3694-K:4ed74d43-1452-4ec5-b518-9e1a666ba201:VALID",
+      "createdAt": "2026-10-19T13:06:49.494256+00:00"
+    },
+    {
+      "id": "cbc2ee20-e53a-4130-9318-da0e77833cc3",
+      "ticketCode": "JT-4476-D",
+      "orderId": "734db2e4-29c0-4390-80a2-84501916801a",
+      "eventId": "4ed74d43-1452-4ec5-b518-9e1a666ba201",
+      "eventTitle": "Soirée Dansante",
+      "ticketTypeId": "d829f3c9-e908-4082-8432-02a8fadbdd19",
+      "ticketTypeName": "Billet Standar",
+      "gateRecommendation": "Porte A - Entrée Principale",
+      "seatNumber": "Place 321",
+      "customerName": "Client Guichet",
+      "customerPhone": "+221 76 402 74 68",
+      "pricePaid": 2000,
+      "status": "VALID",
+      "qrData": "JELTIX:JT-4476-D:4ed74d43-1452-4ec5-b518-9e1a666ba201:VALID",
+      "createdAt": "2026-10-19T13:06:49.494256+00:00"
+    },
     {
       "id": "b724f248-1fe0-439f-953e-5354fedb48fe",
       "ticketCode": "JT-9575-L",
@@ -297,7 +348,7 @@
       "id": "11841ae1-e68d-486e-a1d7-197b6837d844",
       "fullName": "Admin Jël Tix",
       "email": "admin@jeltix.sn",
-      "phone": "+221 77 000 00 01",
+      "phone": "+221 76 402 74 68",
       "role": "SUPER_ADMIN",
       "organization": "Jël Tix SAS",
       "isActive": true,
@@ -344,6 +395,15 @@
       "createdAt": "2026-10-16T13:57:53.203+00:00"
     },
     {
+      "id": "a5ef6e01-81e7-47a3-9f91-cd88d83e711a",
+      "fullName": "mamadou cheikh BA",
+      "email": "mamadoucheikh.ba@uadb.edu.sn",
+      "phone": "",
+      "role": "ORGANIZER",
+      "isActive": true,
+      "createdAt": "2026-10-17T14:01:41.991371+00:00"
+    },
+    {
       "id": "8d3089e5-aae2-44d6-b8b8-9b6caada0cc4",
       "fullName": "test Jel tix",
       "email": "testjeltix@gmail.com",
@@ -357,20 +417,11 @@
       "id": "0343d896-76b4-4655-9bc5-1dac307713b7",
       "fullName": "Mamadou Cheikh Ba",
       "email": "mamadoucheikhba9@gmail.com",
-      "phone": "+221 77 000 00 02",
+      "phone": "+221 76 402 74 68",
       "role": "SUPER_ADMIN",
       "organization": "Jël Tix SAS",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00Z"
-    },
-    {
-      "id": "a5ef6e01-81e7-47a3-9f91-cd88d83e711a",
-      "fullName": "mamadou cheikh BA",
-      "email": "mamadoucheikh.ba@uadb.edu.sn",
-      "phone": "",
-      "role": "ORGANIZER",
-      "isActive": true,
-      "createdAt": "2026-10-17T14:01:41.991371+00:00"
     },
     {
       "id": "ddec7a15-36d9-4bcd-bcc3-07dde7f2fba9",
@@ -394,7 +445,7 @@
       "id": "423252c8-59e7-4fba-9894-5a03f7cb76c4",
       "fullName": "Mamadoucheikh Ba",
       "email": "mcheikhba9@gmail.com",
-      "phone": "",
+      "phone": "+221 76 402 74 68",
       "role": "ORGANIZER",
       "isActive": true,
       "createdAt": "2026-10-16T15:55:16.536185+00:00"
@@ -403,7 +454,7 @@
       "id": "10656978-1aab-481a-a7a8-010f90924a08",
       "fullName": "Mamadou Cheikh Ba (MCB)",
       "email": "mcbfd9@gmail.com",
-      "phone": "+221 77 000 00 03",
+      "phone": "+221 76 402 74 68",
       "role": "SUPER_ADMIN",
       "organization": "Jël Tix SAS",
       "isActive": true,
@@ -440,7 +491,7 @@
       "id": "a0000000-0000-0000-0000-000000000002",
       "fullName": "Super Administrateur",
       "email": "admin@foutaticket.sn",
-      "phone": "+221 77 000 00 00",
+      "phone": "+221 76 402 74 68",
       "role": "SUPER_ADMIN",
       "organization": "Jël Tix & FoutaTicket",
       "isActive": true,
@@ -448,6 +499,22 @@
     }
   ],
   "orders": [
+    {
+      "id": "734db2e4-29c0-4390-80a2-84501916801a",
+      "reference": "CMD-JT-2026-8268",
+      "eventId": "4ed74d43-1452-4ec5-b518-9e1a666ba201",
+      "eventTitle": "Soirée Dansante",
+      "customerName": "Client Guichet",
+      "customerPhone": "+221 76 402 74 68",
+      "customerEmail": "",
+      "items": [],
+      "totalAmount": 9000,
+      "paymentMethod": "WAVE",
+      "paymentStatus": "COMPLETED",
+      "sellerId": "0343d896-76b4-4655-9bc5-1dac307713b7",
+      "channel": "POS_GUICHET",
+      "createdAt": "2026-10-19T13:06:49.199272+00:00"
+    },
     {
       "id": "28533be7-c891-48a4-9da7-4412d4011e1b",
       "reference": "CMD-JT-2026-TEST-4291",

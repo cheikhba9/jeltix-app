@@ -98,7 +98,7 @@ export async function POST(req: Request) {
         eventId: customField.eventId || 'evt-default',
         eventTitle: customField.eventTitle || 'Événement Jël Tix',
         customerName: customField.customerName || 'Client PayTech',
-        customerPhone: customField.customerPhone || rawPayload?.client_phone || '+221 77 000 00 00',
+        customerPhone: customField.customerPhone || rawPayload?.client_phone || '+221 76 402 74 68',
         customerEmail: customField.customerEmail || '',
         items,
         totalAmount: Number(verification.amountPaid || customField.totalPrice || 0),

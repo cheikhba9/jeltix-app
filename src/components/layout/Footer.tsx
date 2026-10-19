@@ -113,14 +113,21 @@ export function Footer() {
           <p className="font-mono">
             © 2026 Jël Tix • Saisissez • Réservez • Profitez. Tous droits réservés.
           </p>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <ThemeToggle showLabel={true} />
             <Link href="#" className="hover:text-[#0038A8] dark:hover:text-[#4EED15] transition-colors">
               Mentions Légales
             </Link>
-            <Link href="#" className="hover:text-[#0038A8] dark:hover:text-[#4EED15] transition-colors">
-              Support 24/7
-            </Link>
+            <a
+              href="https://wa.me/221764027468"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 font-bold text-slate-700 dark:text-white hover:text-[#0038A8] dark:hover:text-[#4EED15] transition-colors"
+              title="Support WhatsApp officiel Jël Tix"
+            >
+              <span>Support WhatsApp :</span>
+              <span className="font-mono text-[#0038A8] dark:text-[#4EED15]">+221 76 402 74 68</span>
+            </a>
           </div>
         </div>
       </div>

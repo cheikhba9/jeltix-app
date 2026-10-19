@@ -607,7 +607,7 @@ export function Header({ onOpenMobileSidebar }: HeaderProps) {
                     <Phone className="w-4 h-4 text-[#0038A8] dark:text-[#4EED15] shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-[10px] text-slate-400 font-bold uppercase font-mono">Téléphone</p>
-                      <p className="font-semibold text-slate-800 dark:text-slate-200">{currentUser?.phone || '+221 77 000 00 00'}</p>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">{currentUser?.phone || '+221 76 402 74 68'}</p>
                     </div>
                   </div>
 

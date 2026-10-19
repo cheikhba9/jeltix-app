@@ -197,7 +197,7 @@ export default function POSPage() {
     const result = purchaseTickets({
       eventId: currentEvent.id,
       customerName: customerName || 'Client Guichet',
-      customerPhone: customerPhone || '+221 77 000 00 00',
+      customerPhone: customerPhone || '+221 76 402 74 68',
       items,
       paymentMethod: selectedPayment,
       channel: 'POS_GUICHET',

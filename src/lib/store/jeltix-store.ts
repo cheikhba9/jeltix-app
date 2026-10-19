@@ -28,7 +28,7 @@ const INITIAL_USERS: UserProfile[] = [
     id: '11841ae1-e68d-486e-a1d7-197b6837d844',
     fullName: 'Admin Jël Tix',
     email: 'admin@jeltix.sn',
-    phone: '+221 77 000 00 01',
+    phone: '+221 76 402 74 68',
     role: 'SUPER_ADMIN',
     organization: 'Jël Tix SAS',
     isActive: true,
@@ -38,7 +38,7 @@ const INITIAL_USERS: UserProfile[] = [
     id: 'a0000000-0000-0000-0000-000000000002',
     fullName: 'Super Administrateur',
     email: 'admin@foutaticket.sn',
-    phone: '+221 77 000 00 00',
+    phone: '+221 76 402 74 68',
     role: 'SUPER_ADMIN',
     organization: 'Jël Tix & FoutaTicket',
     isActive: true,
@@ -48,7 +48,7 @@ const INITIAL_USERS: UserProfile[] = [
     id: '0343d896-76b4-4655-9bc5-1dac307713b7',
     fullName: 'Mamadou Cheikh Ba',
     email: 'mamadoucheikhba9@gmail.com',
-    phone: '+221 77 000 00 02',
+    phone: '+221 76 402 74 68',
     role: 'SUPER_ADMIN',
     organization: 'Jël Tix SAS',
     isActive: true,
@@ -58,7 +58,7 @@ const INITIAL_USERS: UserProfile[] = [
     id: '10656978-1aab-481a-a7a8-010f90924a08',
     fullName: 'Mamadou Cheikh Ba (MCB)',
     email: 'mcbfd9@gmail.com',
-    phone: '+221 77 000 00 03',
+    phone: '+221 76 402 74 68',
     role: 'SUPER_ADMIN',
     organization: 'Jël Tix SAS',
     isActive: true,
@@ -268,6 +268,10 @@ class JeltixStore {
       if (savedCurrentUser) {
         try {
           this.currentUser = JSON.parse(savedCurrentUser);
+          if (this.currentUser && (!this.currentUser.phone || this.currentUser.phone.includes('+221 77 000 00'))) {
+            this.currentUser.phone = '+221 76 402 74 68';
+            localStorage.setItem('jeltix_current_user', JSON.stringify(this.currentUser));
+          }
         } catch {}
       } else {
         this.currentUser = null;

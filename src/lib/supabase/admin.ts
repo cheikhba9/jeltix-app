@@ -475,7 +475,7 @@ export async function saveOrderAndTicketsToSupabase(
             reference: order.reference || `CMD-JT-${Date.now()}`,
             event_id: targetEventId,
             customer_name: order.customerName || 'Client',
-            customer_phone: order.customerPhone || '+221 77 000 00 00',
+            customer_phone: order.customerPhone || '+221 76 402 74 68',
             total_amount: order.totalAmount || 0,
             payment_method: order.paymentMethod || 'CASH',
             payment_status: 'COMPLETED',

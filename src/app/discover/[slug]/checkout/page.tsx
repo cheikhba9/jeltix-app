@@ -45,7 +45,7 @@ export default function CheckoutPage({
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('WAVE');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('PAYTECH');
   const [isProcessing, setIsProcessing] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -373,13 +373,13 @@ export default function CheckoutPage({
             </div>
 
             {/* Step 2: Payment Provider */}
-            <div className="bg-surface-container-lowest rounded-3xl p-6 sm:p-8 border border-outline-variant/30 shadow-xs space-y-4">
+            <div className="bg-surface-container-lowest rounded-3xl p-6 sm:p-8 border border-outline-variant/30 shadow-xs space-y-5">
               <div className="flex items-center justify-between border-b border-outline-variant/20 pb-3">
                 <h2 className="text-base font-black text-on-surface flex items-center gap-2">
                   <span className="w-7 h-7 rounded-lg bg-[#0038A8]/10 text-[#0038A8] flex items-center justify-center font-bold text-xs">
                     2
                   </span>
-                  <span>Mode de Paiement Sécurisé</span>
+                  <span>Passerelle de Paiement Sécurisée</span>
                 </h2>
                 <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 px-2.5 py-1 rounded-full flex items-center gap-1 font-mono">
                   <ShieldCheck className="w-3 h-3" />
@@ -387,93 +387,44 @@ export default function CheckoutPage({
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* Wave */}
-                <div
-                  onClick={() => setPaymentMethod('WAVE')}
-                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
-                    paymentMethod === 'WAVE'
-                      ? 'border-[#1DC9FE] bg-[#1DC9FE]/10 shadow-md'
-                      : 'border-outline-variant/30 bg-surface hover:bg-surface-container'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-[#1DC9FE] uppercase font-mono">WAVE</span>
-                    {paymentMethod === 'WAVE' && (
-                      <CheckCircle2 className="w-4 h-4 text-[#1DC9FE]" />
-                    )}
+              {/* PayTech Unified Container */}
+              <div className="p-5 rounded-2xl bg-surface border-2 border-primary/20 space-y-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-[#0038A8]/10 text-[#0038A8] flex items-center justify-center shrink-0">
+                    <Smartphone className="w-6 h-6" />
                   </div>
                   <div>
-                    <p className="text-sm font-black text-on-surface">Wave Sénégal</p>
-                    <p className="text-[10px] text-on-surface-variant">0% de frais • Immédiat</p>
+                    <h3 className="text-sm font-black text-on-surface">
+                      Choix du moyen de paiement sur PayTech
+                    </h3>
+                    <p className="text-xs text-on-surface-variant mt-0.5 leading-relaxed">
+                      En cliquant sur <strong className="text-on-surface">Payer</strong>, vous serez automatiquement redirigé vers l'interface officielle PayTech pour choisir votre mode de règlement :
+                    </p>
                   </div>
                 </div>
 
-                {/* Orange Money */}
-                <div
-                  onClick={() => setPaymentMethod('ORANGE_MONEY')}
-                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
-                    paymentMethod === 'ORANGE_MONEY'
-                      ? 'border-[#FF7900] bg-[#FF7900]/10 shadow-md'
-                      : 'border-outline-variant/30 bg-surface hover:bg-surface-container'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-[#FF7900] uppercase font-mono">ORANGE</span>
-                    {paymentMethod === 'ORANGE_MONEY' && (
-                      <CheckCircle2 className="w-4 h-4 text-[#FF7900]" />
-                    )}
+                {/* Operator Badges */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                  <div className="p-3 rounded-xl bg-surface-container/60 border border-[#1DC9FE]/40 flex items-center justify-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#1DC9FE]" />
+                    <span className="text-xs font-black text-on-surface font-mono">Wave</span>
                   </div>
-                  <div>
-                    <p className="text-sm font-black text-on-surface">Orange Money</p>
-                    <p className="text-[10px] text-on-surface-variant">Validation mobile directe</p>
+                  <div className="p-3 rounded-xl bg-surface-container/60 border border-[#FF7900]/40 flex items-center justify-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#FF7900]" />
+                    <span className="text-xs font-black text-on-surface font-mono">Orange Money</span>
                   </div>
-                </div>
-
-                {/* Free Money */}
-                <div
-                  onClick={() => setPaymentMethod('FREE_MONEY')}
-                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
-                    paymentMethod === 'FREE_MONEY'
-                      ? 'border-[#E60000] bg-[#E60000]/10 shadow-md'
-                      : 'border-outline-variant/30 bg-surface hover:bg-surface-container'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-[#E60000] uppercase font-mono">FREE</span>
-                    {paymentMethod === 'FREE_MONEY' && (
-                      <CheckCircle2 className="w-4 h-4 text-[#E60000]" />
-                    )}
+                  <div className="p-3 rounded-xl bg-surface-container/60 border border-[#E60000]/40 flex items-center justify-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#E60000]" />
+                    <span className="text-xs font-black text-on-surface font-mono">Free Money</span>
                   </div>
-                  <div>
-                    <p className="text-sm font-black text-on-surface">Free Money</p>
-                    <p className="text-[10px] text-on-surface-variant">Paiement direct Free</p>
-                  </div>
-                </div>
-
-                {/* Carte Bancaire */}
-                <div
-                  onClick={() => setPaymentMethod('CARD')}
-                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
-                    paymentMethod === 'CARD'
-                      ? 'border-primary bg-primary/10 shadow-md'
-                      : 'border-outline-variant/30 bg-surface hover:bg-surface-container'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-primary uppercase font-mono">CARTE</span>
-                    {paymentMethod === 'CARD' && (
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm font-black text-on-surface">Carte Bancaire</p>
-                    <p className="text-[10px] text-on-surface-variant">Visa, Mastercard</p>
+                  <div className="p-3 rounded-xl bg-surface-container/60 border border-primary/40 flex items-center justify-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-primary" />
+                    <span className="text-xs font-black text-on-surface font-mono">Carte Visa / MC</span>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center justify-between text-[11px] text-on-surface-variant">
+              <div className="pt-1 flex items-center justify-between text-[11px] text-on-surface-variant">
                 <span className="flex items-center gap-1.5 font-medium">
                   <ShieldCheck className="w-3.5 h-3.5 text-primary" />
                   Passerelle certifiée PCI-DSS PayTech Sénégal
@@ -529,12 +480,12 @@ export default function CheckoutPage({
                 {isProcessing ? (
                   <>
                     <span className="w-4 h-4 border-2 border-[#002D8C] border-t-transparent rounded-full animate-spin" />
-                    <span>Traitement Mobile Money...</span>
+                    <span>Redirection vers PayTech...</span>
                   </>
                 ) : (
                   <>
                     <Lock className="w-4 h-4" />
-                    <span>Payer {formatFCFA(checkoutData.totalPrice)} FCFA</span>
+                    <span>Payer {formatFCFA(checkoutData.totalPrice)} FCFA sur PayTech</span>
                   </>
                 )}
               </button>

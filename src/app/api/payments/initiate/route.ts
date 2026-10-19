@@ -34,23 +34,8 @@ export async function POST(req: Request) {
     const proto = req.headers.get('x-forwarded-proto') || 'https';
     const origin = process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`;
 
-    // Mapper la méthode de paiement au provider PayTech / Mobile Money
-    let provider: PaymentProvider = 'PAYTECH';
-    let targetPayment: string | undefined = undefined;
-
-    if (paymentMethod === 'WAVE') {
-      provider = 'WAVE';
-      targetPayment = 'Wave';
-    } else if (paymentMethod === 'ORANGE_MONEY') {
-      provider = 'ORANGE_MONEY';
-      targetPayment = 'Orange Money';
-    } else if (paymentMethod === 'FREE_MONEY') {
-      provider = 'FREE_MONEY';
-      targetPayment = 'Free Money';
-    } else if (paymentMethod === 'CARD' || paymentMethod === 'CREDIT_CARD') {
-      provider = 'PAYTECH';
-      targetPayment = 'Carte Bancaire';
-    }
+    // Guichet PayTech multi-opérateurs : le client choisit Wave, OM, Free ou Carte directement sur PayTech
+    const provider: PaymentProvider = 'PAYTECH';
 
     const successReturnUrl = returnUrl
       ? `${returnUrl}${returnUrl.includes('?') ? '&' : '?'}ref=${orderRef}&payment=success`
@@ -79,8 +64,7 @@ export async function POST(req: Request) {
         customerEmail,
         items,
         totalPrice,
-        paymentMethod,
-        targetPayment,
+        paymentMethod: paymentMethod || 'PAYTECH',
       },
     });
 

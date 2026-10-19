@@ -49,26 +49,15 @@ export class PaymentGatewayManager {
       const isMobileMoney = provider === 'PAYTECH' || provider === 'WAVE' || provider === 'ORANGE_MONEY' || provider === 'FREE_MONEY';
 
       if (isMobileMoney) {
-        let targetPayment: string | undefined = undefined;
-        if (provider === 'WAVE') targetPayment = 'Wave';
-        if (provider === 'ORANGE_MONEY') targetPayment = 'Orange Money';
-        if (provider === 'FREE_MONEY') targetPayment = 'Free Money';
-
         const adapter = new PaytechAdapter({
           apiKey: paytechApiKey,
           apiSecret: paytechApiSecret,
           env: (process.env.PAYTECH_ENV as 'test' | 'prod') || (process.env.NODE_ENV === 'production' ? 'prod' : 'test'),
         });
 
-        const reqWithTarget: PaymentInitiationRequest = {
-          ...request,
-          metadata: {
-            ...request.metadata,
-            ...(targetPayment ? { targetPayment } : {}),
-          },
-        };
-
-        return adapter.initiatePayment(reqWithTarget);
+        // Ne pas restreindre target_payment : PayTech affiche son écran officiel
+        // de sélection complet (Wave, Orange Money, Free Money, Carte Bancaire)
+        return adapter.initiatePayment(request);
       }
     }
 

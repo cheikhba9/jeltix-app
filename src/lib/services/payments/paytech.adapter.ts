@@ -61,11 +61,20 @@ export class PaytechAdapter implements PaymentGatewayAdapter {
   async initiatePayment(req: PaymentInitiationRequest): Promise<PaymentInitiationResponse> {
     const env = this.config.env ?? (process.env.NODE_ENV === 'production' ? 'prod' : 'test');
 
-    // Résolution de l'URL IPN publique
-    const baseUrl =
+    // Résolution de l'URL IPN publique (PayTech exige impérativement https:// et rejette localhost)
+    let baseUrl =
+      process.env.PAYTECH_IPN_BASE_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
-      (typeof window !== 'undefined' ? window.location.origin : 'https://jeltix.sn');
-    const ipnUrl = this.config.ipnUrl || `${baseUrl}/api/webhooks/paytech`;
+      (typeof window !== 'undefined' ? window.location.origin : 'https://jeltix.com');
+
+    if (!baseUrl || baseUrl.includes('localhost') || baseUrl.startsWith('http://')) {
+      baseUrl = 'https://jeltix.com';
+    }
+
+    let ipnUrl = this.config.ipnUrl || `${baseUrl}/api/webhooks/paytech`;
+    if (ipnUrl.startsWith('http://')) {
+      ipnUrl = ipnUrl.replace('http://', 'https://');
+    }
 
     // Métadonnées personnalisées stockées dans custom_field
     const customData = {

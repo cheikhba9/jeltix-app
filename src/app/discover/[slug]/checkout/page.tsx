@@ -176,8 +176,14 @@ export default function CheckoutPage({
 
       const data = await res.json();
 
+      if (!data.success) {
+        setValidationError(data.error || 'Erreur lors de l’initialisation auprès de PayTech');
+        setIsProcessing(false);
+        return;
+      }
+
       // Si PayTech a retourné une URL de redirection (Wave, Orange Money, Free Money, Carte)
-      if (data.success && data.redirect && data.checkoutUrl) {
+      if (data.redirect && data.checkoutUrl) {
         if (typeof window !== 'undefined') {
           try {
             sessionStorage.setItem(

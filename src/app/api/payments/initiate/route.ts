@@ -81,11 +81,14 @@ export async function POST(req: Request) {
           { auth: { autoRefreshToken: false, persistSession: false } }
         );
 
-        const { data: eventData } = await supabase
-          .from('events')
-          .select('id, title, status, ticket_types(*)')
-          .or(`id.eq.${eventId},slug.eq.${eventId}`)
-          .single();
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId);
+        let query = supabase.from('events').select('id, title, status, ticket_types(*)');
+        if (isUuid) {
+          query = query.eq('id', eventId);
+        } else {
+          query = query.eq('slug', eventId);
+        }
+        const { data: eventData } = await query.maybeSingle();
 
         if (eventData) {
           finalEventTitle = eventData.title || finalEventTitle;
@@ -160,12 +163,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // Si une URL de paiement PayTech hébergée est disponible
+    // Si une URL de paiement PayTech hébergée est disponible, pré-remplir automatiquement le nom et téléphone
     if (initiationResult.checkoutUrl) {
+      let finalCheckoutUrl = initiationResult.checkoutUrl;
+      const cleanDigits = customerPhone.replace(/\D/g, '');
+      const national = cleanDigits.startsWith('221') ? cleanDigits.slice(3) : cleanDigits;
+      const intl = `+221${national}`;
+
+      const sep = finalCheckoutUrl.includes('?') ? '&' : '?';
+      finalCheckoutUrl = `${finalCheckoutUrl}${sep}fn=${encodeURIComponent(customerName)}&pn=${encodeURIComponent(intl)}&nn=${encodeURIComponent(national)}`;
+
       return NextResponse.json({
         success: true,
         redirect: true,
-        checkoutUrl: initiationResult.checkoutUrl,
+        checkoutUrl: finalCheckoutUrl,
         paymentId,
         orderRef,
         provider: initiationResult.provider,

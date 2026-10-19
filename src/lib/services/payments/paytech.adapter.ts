@@ -61,29 +61,43 @@ export class PaytechAdapter implements PaymentGatewayAdapter {
   async initiatePayment(req: PaymentInitiationRequest): Promise<PaymentInitiationResponse> {
     const env = this.config.env ?? (process.env.NODE_ENV === 'production' ? 'prod' : 'test');
 
-    // Résolution de l'URL IPN publique (PayTech exige impérativement https:// et rejette localhost)
+    // Résolution de l'URL publique de base (PayTech exige impérativement https:// et rejette localhost)
     let baseUrl = (
       process.env.PAYTECH_IPN_BASE_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
-      (typeof window !== 'undefined' ? window.location.origin : 'https://jeltix.com')
-    ).trim();
-
-    if (baseUrl.endsWith('/')) {
-      baseUrl = baseUrl.slice(0, -1);
-    }
+      'https://jeltix-sn.vercel.app'
+    ).trim().replace(/\/+$/, '');
 
     if (!baseUrl || baseUrl.includes('localhost') || baseUrl.startsWith('http://')) {
-      baseUrl = 'https://jeltix.com';
+      baseUrl = 'https://jeltix-sn.vercel.app';
     }
 
-    let ipnUrl = this.config.ipnUrl || `${baseUrl}/api/webhooks/paytech`;
-    if (ipnUrl.startsWith('http://')) {
-      ipnUrl = ipnUrl.replace('http://', 'https://');
-    }
-    ipnUrl = ipnUrl.replace(/([^:]\/)\/+/g, '$1');
+    const sanitizeUrl = (inputUrl: string | undefined, defaultPath: string): string => {
+      const fallback = baseUrl.replace(/\/+$/, '');
+      if (!inputUrl) {
+        return `${fallback}${defaultPath}`;
+      }
+      const str = inputUrl.trim();
+      try {
+        if (str.startsWith('/')) {
+          return `${fallback}${str}`;
+        }
+        const parsed = new URL(str);
+        if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.protocol === 'http:') {
+          const fallbackUrl = new URL(fallback);
+          parsed.protocol = 'https:';
+          parsed.host = fallbackUrl.host;
+          parsed.port = '';
+        }
+        return parsed.toString().replace(/([^:]\/)\/+/g, '$1');
+      } catch {
+        return `${fallback}${defaultPath}`;
+      }
+    };
 
-    const cleanSuccessUrl = (req.returnUrl || `${baseUrl}/tickets?payment=success`).replace(/([^:]\/)\/+/g, '$1');
-    const cleanCancelUrl = (req.cancelUrl || `${baseUrl}/discover?cancelled=1`).replace(/([^:]\/)\/+/g, '$1');
+    const ipnUrl = sanitizeUrl(this.config.ipnUrl, '/api/webhooks/paytech');
+    const cleanSuccessUrl = sanitizeUrl(req.returnUrl, '/tickets?payment=success');
+    const cleanCancelUrl = sanitizeUrl(req.cancelUrl, '/discover?cancelled=1');
 
     // Métadonnées personnalisées stockées dans custom_field
     const customData = {

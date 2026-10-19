@@ -30,26 +30,42 @@ export async function POST(req: Request) {
     const paymentId = `PAY-${orderRef}`;
 
     // Base URL pour les redirections
-    const host = req.headers.get('host') || 'localhost:3000';
-    const proto = req.headers.get('x-forwarded-proto') || 'https';
-    let origin = (process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`).trim();
-    if (origin.endsWith('/')) {
-      origin = origin.slice(0, -1);
+    let origin = (process.env.NEXT_PUBLIC_APP_URL || 'https://jeltix-sn.vercel.app').trim().replace(/\/+$/, '');
+    if (!origin || origin.includes('localhost') || origin.startsWith('http://')) {
+      origin = 'https://jeltix-sn.vercel.app';
     }
 
     // Guichet PayTech multi-opérateurs : le client choisit Wave, OM, Free ou Carte directement sur PayTech
     const provider: PaymentProvider = 'PAYTECH';
 
-    let successReturnUrl = returnUrl
-      ? `${returnUrl}${returnUrl.includes('?') ? '&' : '?'}ref=${orderRef}&payment=success`
-      : `${origin}/tickets?ref=${orderRef}&payment=success`;
-    let failureCancelUrl = cancelUrl
-      ? `${cancelUrl}${cancelUrl.includes('?') ? '&' : '?'}ref=${orderRef}&cancelled=1`
-      : `${origin}/discover?cancelled=1`;
+    // Remplacer localhost dans returnUrl et cancelUrl si nécessaire
+    const formatUrl = (rawUrl?: string, fallbackPath = '/tickets') => {
+      let target = rawUrl?.trim() || `${origin}${fallbackPath}`;
+      try {
+        if (target.startsWith('/')) {
+          target = `${origin}${target}`;
+        }
+        const u = new URL(target);
+        if (u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.protocol === 'http:') {
+          const originU = new URL(origin);
+          u.protocol = 'https:';
+          u.host = originU.host;
+          u.port = '';
+        }
+        return u.toString().replace(/([^:]\/)\/+/g, '$1');
+      } catch {
+        return `${origin}${fallbackPath}`;
+      }
+    };
 
-    // Éliminer toute double barre oblique dans le chemin pour respecter la validation PayTech
-    successReturnUrl = successReturnUrl.replace(/([^:]\/)\/+/g, '$1');
-    failureCancelUrl = failureCancelUrl.replace(/([^:]\/)\/+/g, '$1');
+    let successReturnUrl = formatUrl(
+      returnUrl ? `${returnUrl}${returnUrl.includes('?') ? '&' : '?'}ref=${orderRef}&payment=success` : undefined,
+      `/tickets?ref=${orderRef}&payment=success`
+    );
+    let failureCancelUrl = formatUrl(
+      cancelUrl ? `${cancelUrl}${cancelUrl.includes('?') ? '&' : '?'}ref=${orderRef}&cancelled=1` : undefined,
+      `/discover?cancelled=1`
+    );
 
     // Appel au gestionnaire de passerelle
     const initiationResult = await paymentGateway.initiateCheckout(provider, {

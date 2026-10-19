@@ -36,7 +36,7 @@ export class PaymentGatewayManager {
       return new PaytechAdapter({
         apiKey,
         apiSecret,
-        env: (process.env.PAYTECH_ENV as 'test' | 'prod') || 'test',
+        env: (process.env.PAYTECH_ENV as 'test' | 'prod') || 'prod',
       });
     }
     return null;
@@ -65,7 +65,7 @@ export class PaymentGatewayManager {
       const adapter = new PaytechAdapter({
         apiKey: paytechApiKey,
         apiSecret: paytechApiSecret,
-        env: (process.env.PAYTECH_ENV as 'test' | 'prod') || 'test',
+        env: (process.env.PAYTECH_ENV as 'test' | 'prod') || 'prod',
       });
 
       return adapter.initiatePayment(request);

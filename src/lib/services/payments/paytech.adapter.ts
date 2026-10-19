@@ -49,7 +49,7 @@ export class PaytechAdapter implements PaymentGatewayAdapter {
     this.config = {
       apiKey: config.apiKey?.trim(),
       apiSecret: config.apiSecret?.trim(),
-      env: config.env || (process.env.NODE_ENV === 'production' ? 'prod' : 'test'),
+      env: config.env || (process.env.PAYTECH_ENV as 'test' | 'prod') || 'prod',
       ipnUrl: config.ipnUrl,
     };
   }
@@ -59,7 +59,7 @@ export class PaytechAdapter implements PaymentGatewayAdapter {
    * Prend en charge Wave, Orange Money, Free Money et Carte Bancaire.
    */
   async initiatePayment(req: PaymentInitiationRequest): Promise<PaymentInitiationResponse> {
-    const env = this.config.env ?? (process.env.NODE_ENV === 'production' ? 'prod' : 'test');
+    const env = this.config.env || (process.env.PAYTECH_ENV as 'test' | 'prod') || 'prod';
 
     // Résolution de l'URL publique de base (PayTech exige impérativement https:// et rejette localhost)
     let baseUrl = (

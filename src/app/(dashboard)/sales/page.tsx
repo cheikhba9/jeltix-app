@@ -783,24 +783,31 @@ export default function SalesPage() {
                       const typeName = Array.isArray(t.ticket_types)
                         ? t.ticket_types[0]?.name
                         : t.ticket_types?.name || 'Billet Standard';
+                      const isTktUsed = t.status === 'USED';
                       return (
                         <div
                           key={t.id}
-                          className="p-3 rounded-2xl bg-surface-container border border-outline-variant/30 flex items-center justify-between gap-3"
+                          className={`p-3 rounded-2xl border flex items-center justify-between gap-3 transition-all ${
+                            isTktUsed
+                              ? 'bg-slate-100/70 dark:bg-slate-900/50 border-slate-300 dark:border-slate-800 opacity-60 grayscale'
+                              : 'bg-surface-container border-outline-variant/30'
+                          }`}
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-mono font-black text-xs text-primary tracking-wider">
+                              <span className={`font-mono font-black text-xs tracking-wider ${
+                                isTktUsed ? 'text-slate-500 line-through' : 'text-primary'
+                              }`}>
                                 {t.ticket_code}
                               </span>
                               <span
                                 className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase font-mono ${
                                   t.status === 'VALID'
                                     ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300'
-                                    : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+                                    : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                                 }`}
                               >
-                                {t.status === 'VALID' ? 'Valide' : t.status === 'USED' ? 'Scanné' : t.status}
+                                {t.status === 'VALID' ? 'Valide ✓' : isTktUsed ? 'Scanné (Utilisé)' : t.status}
                               </span>
                             </div>
                             <p className="text-[11px] text-on-surface-variant truncate mt-0.5">

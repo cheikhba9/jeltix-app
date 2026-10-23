@@ -390,9 +390,17 @@ export default function TicketViewPage({
         )}
 
         {/* Cinematic Jël Tix E-Ticket Card */}
-        <div className="w-full bg-white text-slate-900 rounded-3xl shadow-2xl overflow-hidden relative border border-white/20">
+        <div className={`w-full rounded-3xl shadow-2xl overflow-hidden relative border transition-all ${
+          isUsed
+            ? 'bg-slate-100 dark:bg-slate-900/80 border-slate-400/40 text-slate-700 dark:text-slate-300 opacity-80 grayscale-[0.85]'
+            : 'bg-white text-slate-900 border-white/20'
+        }`}>
           {/* Top Holographic Banner */}
-          <div className="bg-gradient-to-r from-[#002D8C] via-[#0038A8] to-[#0D52D6] p-6 sm:p-8 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden">
+          <div className={`p-6 sm:p-8 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden ${
+            isUsed
+              ? 'bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900'
+              : 'bg-gradient-to-r from-[#002D8C] via-[#0038A8] to-[#0D52D6]'
+          }`}>
             <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-[#4EED15]/20 rounded-full blur-2xl pointer-events-none" />
 
             <div className="flex items-center gap-3 relative z-10">
@@ -410,21 +418,31 @@ export default function TicketViewPage({
               <span
                 className={`px-3.5 py-1.5 rounded-full text-xs font-black font-mono shadow-md flex items-center gap-1.5 ${
                   isUsed
-                    ? 'bg-[#DC2626] text-white'
+                    ? 'bg-slate-700 text-slate-200 border border-slate-500'
                     : 'bg-[#4EED15] text-[#002D8C]'
                 }`}
               >
-                <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
-                {isUsed ? 'DÉJÀ SCANNÉ / UTILISÉ' : 'BILLET OFFICIEL ACTIF'}
+                <span className={`w-2 h-2 rounded-full ${isUsed ? 'bg-slate-400' : 'bg-current animate-pulse'}`} />
+                {isUsed ? 'DÉJÀ SCANNÉ / UTILISÉ' : 'BILLET VALIDE ✓'}
               </span>
             </div>
           </div>
 
+          {/* Scanned ticket warning banner */}
+          {isUsed && (
+            <div className="bg-slate-800 text-slate-300 py-2.5 px-4 text-center text-xs font-mono font-bold flex items-center justify-center gap-2 border-b border-slate-700">
+              <span className="w-2 h-2 rounded-full bg-slate-400" />
+              <span>Ce billet a déjà été scanné aux tourniquets • Billet composté</span>
+            </div>
+          )}
+
           {/* Anti-Fraud Live Holographic Security Bar */}
           <div className="bg-slate-900 text-white px-6 py-2 flex items-center justify-between text-[11px] font-mono">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#4EED15] animate-ping" />
-              <span className="text-[#4EED15] font-bold">HORLOGE DYNAMIQUE ANTI-CAPTURE :</span>
+              <span className={`w-2 h-2 rounded-full ${isUsed ? 'bg-slate-400' : 'bg-[#4EED15] animate-ping'}`} />
+              <span className={`${isUsed ? 'text-slate-400' : 'text-[#4EED15]'} font-bold`}>
+                {isUsed ? 'BILLET ENREGISTRÉ ET COMPOSITÉ' : 'HORLOGE DYNAMIQUE ANTI-CAPTURE :'}
+              </span>
               <span suppressHydrationWarning>{new Date().toLocaleTimeString('fr-FR')} :{liveSeconds < 10 ? `0${liveSeconds}` : liveSeconds}</span>
             </div>
             <span className="text-white/60 hidden sm:inline">Cryptage SHA-256 Jël Tix</span>
@@ -506,15 +524,26 @@ export default function TicketViewPage({
             </div>
 
             {/* QR Code Container */}
-            <div className="flex flex-col items-center bg-slate-50 p-5 rounded-3xl border-2 border-slate-200 shadow-inner shrink-0">
+            <div className={`flex flex-col items-center p-5 rounded-3xl border-2 shadow-inner shrink-0 relative ${
+              isUsed
+                ? 'bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 opacity-60 grayscale'
+                : 'bg-slate-50 border-slate-200'
+            }`}>
               <QRCodeSVG
                 value={ticket.ticketCode}
                 size={165}
                 level="H"
                 includeMargin={false}
               />
-              <p className="text-[10px] font-mono font-bold text-slate-600 mt-3 text-center">
-                Scan unique aux tourniquets
+              {isUsed && (
+                <div className="absolute inset-0 bg-slate-900/40 rounded-3xl flex items-center justify-center backdrop-blur-[0.5px]">
+                  <span className="text-xs font-black uppercase tracking-wider text-white bg-slate-800/95 px-3 py-1 rounded-lg border border-slate-600 font-mono -rotate-12 shadow-lg">
+                    DÉJÀ SCANNÉ
+                  </span>
+                </div>
+              )}
+              <p className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-400 mt-3 text-center">
+                {isUsed ? 'Billet composté aux tourniquets' : 'Scan unique aux tourniquets'}
               </p>
             </div>
           </div>

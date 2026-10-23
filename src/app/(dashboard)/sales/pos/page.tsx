@@ -29,6 +29,7 @@ import {
   Sparkles,
   Calculator,
   Lock,
+  AlertTriangle,
   Ticket as TicketIcon,
 } from 'lucide-react';
 
@@ -167,10 +168,24 @@ export default function POSPage() {
   const totalAmount = Object.values(cart).reduce((sum, item) => sum + item.qty * item.price, 0);
   const totalQuantity = Object.values(cart).reduce((sum, item) => sum + item.qty, 0);
 
+  const isCashInsufficient =
+    selectedPayment === 'CASH' &&
+    totalAmount > 0 &&
+    typeof cashTendered === 'number' &&
+    cashTendered > 0 &&
+    cashTendered < totalAmount;
+
   const changeToReturn =
     typeof cashTendered === 'number' && cashTendered >= totalAmount
       ? cashTendered - totalAmount
       : 0;
+
+  // Réinitialiser la monnaie reçue si le total du panier dépasse le montant préalablement sélectionné
+  useEffect(() => {
+    if (typeof cashTendered === 'number' && cashTendered > 0 && totalAmount > 0 && cashTendered < totalAmount) {
+      setCashTendered('');
+    }
+  }, [totalAmount, cashTendered]);
 
   const handleCheckout = () => {
     if (totalAmount === 0 || !currentEvent || isCurrentEventClosed) {
@@ -181,6 +196,15 @@ export default function POSPage() {
           message: 'Cet événement est terminé ou clôturé. La vente est impossible.',
         });
       }
+      return;
+    }
+
+    if (isCashInsufficient) {
+      addToast({
+        type: 'error',
+        title: 'Montant reçu insuffisant',
+        message: `La somme reçue (${formatFCFA(cashTendered as number)} FCFA) ne couvre pas le total des billets (${formatFCFA(totalAmount)} FCFA).`,
+      });
       return;
     }
 
@@ -375,49 +399,99 @@ export default function POSPage() {
 
           {/* Quick Cash Calculator / Denomination Buttons */}
           <div className="bg-surface-container rounded-3xl p-5 border border-outline-variant/30 space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant flex items-center gap-1.5 font-mono">
                 <Calculator className="w-4 h-4 text-primary" />
                 <span>Calculateur Monnaie Reçue</span>
               </span>
-              {typeof cashTendered === 'number' && cashTendered > 0 && (
-                <button
-                  onClick={() => setCashTendered('')}
-                  className="text-[11px] font-bold text-error hover:underline cursor-pointer"
-                >
-                  Effacer
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {totalAmount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setCashTendered(totalAmount)}
+                    className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
+                      cashTendered === totalAmount
+                        ? 'bg-[#2CA808] text-white border-[#2CA808] shadow-xs'
+                        : 'bg-surface hover:bg-surface-container-high text-primary border-primary/30'
+                    }`}
+                    title="Définir la monnaie reçue comme étant exactement le montant total"
+                  >
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>Compte Exact ({formatFCFA(totalAmount)} F)</span>
+                  </button>
+                )}
+                {typeof cashTendered === 'number' && cashTendered > 0 && (
+                  <button
+                    onClick={() => setCashTendered('')}
+                    className="text-[11px] font-bold text-error hover:underline cursor-pointer"
+                  >
+                    Effacer
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {CASH_DENOMINATIONS.map((val) => (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => setCashTendered(val)}
-                  className={`py-2 px-2 rounded-xl text-xs font-black font-mono border transition-transform active:scale-95 cursor-pointer text-center ${
-                    cashTendered === val
-                      ? 'bg-primary text-on-primary border-primary shadow-sm'
-                      : 'bg-surface hover:bg-surface-container-high text-on-surface border-outline-variant/30'
-                  }`}
-                >
-                  {formatFCFA(val)}
-                </button>
-              ))}
+              {CASH_DENOMINATIONS.map((val) => {
+                const isUnderTotal = totalAmount > 0 && val < totalAmount;
+                const isSelected = cashTendered === val;
+
+                return (
+                  <button
+                    key={val}
+                    type="button"
+                    disabled={isUnderTotal}
+                    onClick={() => setCashTendered(val)}
+                    title={
+                      isUnderTotal
+                        ? `Montant inférieur au total de la commande (${formatFCFA(totalAmount)} FCFA)`
+                        : `Encaisser ${formatFCFA(val)} FCFA`
+                    }
+                    className={`py-2 px-2 rounded-xl text-xs font-black font-mono border transition-all text-center ${
+                      isUnderTotal
+                        ? 'opacity-30 cursor-not-allowed bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-500 line-through border-dashed border-outline-variant/20 shadow-none'
+                        : isSelected
+                        ? 'bg-primary text-on-primary border-primary shadow-sm cursor-pointer active:scale-95'
+                        : 'bg-surface hover:bg-surface-container-high text-on-surface border-outline-variant/30 cursor-pointer active:scale-95'
+                    }`}
+                  >
+                    {formatFCFA(val)}
+                  </button>
+                );
+              })}
             </div>
 
-            {totalAmount > 0 && typeof cashTendered === 'number' && (
-              <div className="mt-3 p-3 rounded-2xl bg-surface flex items-center justify-between border border-outline-variant/30">
+            {totalAmount > 0 && typeof cashTendered === 'number' && cashTendered > 0 && (
+              <div
+                className={`mt-3 p-3 rounded-2xl bg-surface flex items-center justify-between border ${
+                  cashTendered < totalAmount
+                    ? 'border-error/50 bg-error/5'
+                    : 'border-outline-variant/30'
+                }`}
+              >
                 <div>
                   <p className="text-[10px] uppercase font-mono text-on-surface-variant">Montant Reçu</p>
                   <p className="text-base font-extrabold text-on-surface">{formatFCFA(cashTendered)} FCFA</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] uppercase font-mono text-on-surface-variant">Monnaie à Rendre</p>
-                  <p className={`text-xl font-black ${changeToReturn >= 0 ? 'text-[#2CA808] dark:text-[#4EED15]' : 'text-error'}`}>
-                    {changeToReturn >= 0 ? `${formatFCFA(changeToReturn)} FCFA` : 'Montant insuffisant'}
-                  </p>
+                  {cashTendered < totalAmount ? (
+                    <>
+                      <p className="text-[10px] uppercase font-mono text-error font-bold flex items-center justify-end gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span>Montant Insuffisant</span>
+                      </p>
+                      <p className="text-base font-black text-error">
+                        Manque : -{formatFCFA(totalAmount - cashTendered)} FCFA
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-[10px] uppercase font-mono text-on-surface-variant">Monnaie à Rendre</p>
+                      <p className="text-xl font-black text-[#2CA808] dark:text-[#4EED15]">
+                        {formatFCFA(changeToReturn)} FCFA
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -579,11 +653,13 @@ export default function POSPage() {
 
               <button
                 type="button"
-                disabled={totalAmount === 0 || isCurrentEventClosed}
+                disabled={totalAmount === 0 || isCurrentEventClosed || isCashInsufficient}
                 onClick={handleCheckout}
                 className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl transition-transform active:scale-95 cursor-pointer ${
                   isCurrentEventClosed
                     ? 'bg-amber-500/20 border-2 border-amber-500 text-amber-800 dark:text-amber-300 cursor-not-allowed'
+                    : isCashInsufficient
+                    ? 'bg-error/15 border-2 border-error text-error cursor-not-allowed'
                     : totalAmount > 0
                     ? 'bg-gradient-to-r from-[#2CA808] to-[#4EED15] text-[#002D8C] hover:opacity-95'
                     : 'bg-surface-container-highest text-on-surface-variant/40 cursor-not-allowed'
@@ -593,6 +669,13 @@ export default function POSPage() {
                   <>
                     <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                     <span>Événement Terminé (Vente Bloquée)</span>
+                  </>
+                ) : isCashInsufficient ? (
+                  <>
+                    <AlertTriangle className="w-5 h-5 text-error" />
+                    <span>
+                      Montant Reçu Insuffisant (Manque {formatFCFA(totalAmount - (cashTendered as number))} F)
+                    </span>
                   </>
                 ) : (
                   <>

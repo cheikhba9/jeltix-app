@@ -134,6 +134,7 @@ export default function POSPage() {
       };
     });
 
+    setCashTendered('');
     playSuccessBeep();
     addToast({
       type: 'success',
@@ -158,6 +159,7 @@ export default function POSPage() {
         [ticketTypeId]: { ...item, qty: nextQty },
       };
     });
+    setCashTendered('');
   };
 
   const clearCart = () => {
@@ -179,13 +181,6 @@ export default function POSPage() {
     typeof cashTendered === 'number' && cashTendered >= totalAmount
       ? cashTendered - totalAmount
       : 0;
-
-  // Réinitialiser la monnaie reçue si le total du panier dépasse le montant préalablement sélectionné
-  useEffect(() => {
-    if (typeof cashTendered === 'number' && cashTendered > 0 && totalAmount > 0 && cashTendered < totalAmount) {
-      setCashTendered('');
-    }
-  }, [totalAmount, cashTendered]);
 
   const handleCheckout = () => {
     if (totalAmount === 0 || !currentEvent || isCurrentEventClosed) {

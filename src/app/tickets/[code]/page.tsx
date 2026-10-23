@@ -616,30 +616,15 @@ export default function TicketViewPage({
           </div>
         </div>
 
-        {/* Quick Simulator link for controllers */}
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+        {/* Navigation retour événement */}
+        <div className="mt-8 max-w-md w-full">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
-            <p className="text-xs text-white/70 mb-2">
-              Tester le contrôle de ce billet sur l'application agent :
-            </p>
-            <Link
-              href={`/scan?code=${ticket.ticketCode}`}
-              target="_blank"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0038A8] hover:bg-[#002D8C] text-white font-bold text-xs shadow-md transition-transform active:scale-95"
-            >
-              <QrCode className="w-4 h-4 text-[#4EED15]" />
-              <span>Tester le Scan (# {ticket.ticketCode})</span>
-              <ExternalLink className="w-3.5 h-3.5 opacity-70" />
-            </Link>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
-            <p className="text-xs text-white/70 mb-2">
+            <p className="text-xs text-white/70 mb-2.5">
               Besoin de modifier ou commander d'autres billets ?
             </p>
             <Link
               href={event ? `/discover/${event.slug}` : '/'}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 transition-transform active:scale-95"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 transition-transform active:scale-95"
             >
               <Calendar className="w-4 h-4 text-[#4EED15]" />
               <span>Voir la fiche de l'événement</span>

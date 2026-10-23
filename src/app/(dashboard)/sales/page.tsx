@@ -5,6 +5,7 @@ import { useJeltixStore } from '@/lib/store/jeltix-store';
 import { formatFCFA } from '@/lib/utils/format';
 import { useToast } from '@/components/ui/Toast';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
 import {
   Loader2,
@@ -26,7 +27,15 @@ import {
   Calendar,
   Layers,
   ArrowUpDown,
+  Printer,
+  ExternalLink,
+  MessageCircle,
+  Ticket as TicketIcon,
 } from 'lucide-react';
+
+const QRCodeSVG = dynamic(() => import('qrcode.react').then((m) => m.QRCodeSVG), {
+  ssr: false,
+});
 
 interface SupabaseOrder {
   id: string;
@@ -65,6 +74,41 @@ export default function SalesPage() {
   const [methodFilter, setMethodFilter] = useState<string>('ALL');
   const [selectedOrder, setSelectedOrder] = useState<SupabaseOrder | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [orderTickets, setOrderTickets] = useState<any[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [showThermalReceipt, setShowThermalReceipt] = useState(false);
+
+  useEffect(() => {
+    if (!selectedOrder) {
+      setOrderTickets([]);
+      setShowThermalReceipt(false);
+      return;
+    }
+    const currentOrderId = selectedOrder.id;
+    const currentOrderRef = selectedOrder.reference;
+    let isMounted = true;
+    async function fetchTickets() {
+      setLoadingTickets(true);
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('tickets')
+          .select('id, ticket_code, price_paid, status, qr_data, gate_recommendation, ticket_types(name)')
+          .or(`order_id.eq.${currentOrderId},order_id.eq.${currentOrderRef}`);
+        if (!error && data && isMounted) {
+          setOrderTickets(data);
+        }
+      } catch (err) {
+        console.error('Erreur chargement billets commande:', err);
+      } finally {
+        if (isMounted) setLoadingTickets(false);
+      }
+    }
+    fetchTickets();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedOrder]);
 
   const loadOrders = useCallback(async () => {
     if (isController) return;
@@ -723,29 +767,194 @@ export default function SalesPage() {
                 </span>
               </div>
 
+              {/* Billets associés à la commande */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider font-mono flex items-center gap-1.5">
+                    <TicketIcon className="w-3.5 h-3.5 text-primary" />
+                    <span>Billets Émis ({orderTickets.length})</span>
+                  </span>
+                  {loadingTickets && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
+                </div>
+
+                {orderTickets.length > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {orderTickets.map((t) => {
+                      const typeName = Array.isArray(t.ticket_types)
+                        ? t.ticket_types[0]?.name
+                        : t.ticket_types?.name || 'Billet Standard';
+                      return (
+                        <div
+                          key={t.id}
+                          className="p-3 rounded-2xl bg-surface-container border border-outline-variant/30 flex items-center justify-between gap-3"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-black text-xs text-primary tracking-wider">
+                                {t.ticket_code}
+                              </span>
+                              <span
+                                className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase font-mono ${
+                                  t.status === 'VALID'
+                                    ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300'
+                                    : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+                                }`}
+                              >
+                                {t.status === 'VALID' ? 'Valide' : t.status === 'USED' ? 'Scanné' : t.status}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-on-surface-variant truncate mt-0.5">
+                              {typeName} • {t.gate_recommendation || 'Accès Général'}
+                            </p>
+                          </div>
+
+                          <Link
+                            href={`/tickets/${t.ticket_code}`}
+                            target="_blank"
+                            className="px-2.5 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary font-bold text-[11px] flex items-center gap-1 shrink-0 transition-colors"
+                            title="Voir le billet avec son QR Code"
+                          >
+                            <span>Voir</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : !loadingTickets ? (
+                  <p className="text-[11px] text-on-surface-variant italic p-2.5 bg-surface-container rounded-xl text-center">
+                    Billet en cours de synchronisation ou archivé.
+                  </p>
+                ) : null}
+              </div>
+
+              {/* Partage WhatsApp au Client */}
+              {selectedOrder.customer_phone && (
+                <a
+                  href={`https://wa.me/${selectedOrder.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                    `Bonjour ${selectedOrder.customer_name || 'Client'}, voici votre reçu Jël Tix pour la commande #${selectedOrder.reference} (${formatFCFA(selectedOrder.total_amount)} FCFA).${
+                      orderTickets[0]?.ticket_code
+                        ? ` Votre billet : https://jeltix-sn.vercel.app/tickets/${orderTickets[0].ticket_code}`
+                        : ''
+                    }`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Envoyer au Client par WhatsApp</span>
+                </a>
+              )}
+
               {/* Actions */}
               <div className="flex gap-2 pt-2">
                 <button
-                  onClick={() => {
-                    addToast({
-                      type: 'info',
-                      title: 'Impression en cours',
-                      message: `Envoi du reçu #${selectedOrder.reference} à l'imprimante thermique.`,
-                    });
-                  }}
-                  className="flex-1 py-2.5 rounded-xl border border-outline-variant bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface font-bold text-xs transition flex items-center justify-center gap-2"
+                  type="button"
+                  onClick={() => setShowThermalReceipt(true)}
+                  className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary hover:bg-primary-hover font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
                 >
-                  <Receipt className="w-4 h-4 text-primary" />
+                  <Printer className="w-4 h-4 text-[#4EED15]" />
                   <span>Imprimer Reçu</span>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setSelectedOrder(null)}
-                  className="flex-1 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs hover:bg-primary-hover transition"
+                  className="px-5 py-2.5 rounded-xl border border-outline-variant bg-surface-container-highest hover:bg-outline-variant/30 text-on-surface font-bold text-xs transition cursor-pointer"
                 >
                   Fermer
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Impression Reçu Thermique 80mm */}
+      {showThermalReceipt && selectedOrder && (
+        <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white text-slate-900 rounded-3xl max-w-sm w-full p-5 space-y-4 shadow-2xl animate-scale-in border border-slate-200">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-800 font-mono">
+                Aperçu Reçu d'Encaissement
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowThermalReceipt(false)}
+                className="p-1 rounded-full hover:bg-slate-100 text-slate-400"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-300 text-center font-mono space-y-3">
+              <div>
+                <p className="text-base font-black tracking-tight text-[#0038A8]">JËL TIX BILLETTERIE</p>
+                <p className="text-[10px] text-slate-500">Saisissez • Réservez • Profitez</p>
+                <p className="text-[10px] text-slate-400">Reçu officiel d'encaissement</p>
+              </div>
+
+              <div className="border-t border-b border-dashed border-slate-300 py-2 text-left text-[11px] space-y-1">
+                <p className="font-bold text-slate-900 truncate">
+                  {(Array.isArray(selectedOrder.events) ? selectedOrder.events[0]?.title : selectedOrder.events?.title) || 'Événement'}
+                </p>
+                <p className="text-slate-600">Commande : #{selectedOrder.reference}</p>
+                <p className="text-slate-600">Client : {selectedOrder.customer_name || 'Client'}</p>
+                <p className="text-slate-600">Contact : {selectedOrder.customer_phone || 'N/A'}</p>
+                <p className="text-slate-600">
+                  Mode : {METHOD_LABELS[selectedOrder.payment_method]?.label || selectedOrder.payment_method}
+                </p>
+                <p className="text-slate-400 text-[10px]">
+                  Date : {new Date(selectedOrder.created_at).toLocaleString('fr-FR')}
+                </p>
+              </div>
+
+              {/* Tickets list with QR Code */}
+              {orderTickets.length > 0 ? (
+                <div className="space-y-2 py-1">
+                  {orderTickets.map((t) => (
+                    <div key={t.id} className="bg-white p-2.5 rounded-xl border border-slate-200 flex flex-col items-center gap-1.5">
+                      <div className="flex justify-between w-full text-[11px] font-bold">
+                        <span className="text-[#0038A8]">
+                          {Array.isArray(t.ticket_types) ? t.ticket_types[0]?.name : t.ticket_types?.name || 'Billet'}
+                        </span>
+                        <span>{formatFCFA(t.price_paid || 0)} F</span>
+                      </div>
+                      <QRCodeSVG value={t.ticket_code} size={90} level="M" />
+                      <p className="text-xs font-black tracking-widest text-[#0038A8]">{t.ticket_code}</p>
+                      <p className="text-[9px] text-slate-500">{t.gate_recommendation || 'Accès Standard'}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="border-t border-dashed border-slate-300 pt-2 text-xs flex justify-between font-black">
+                <span>TOTAL ENCAISSÉ :</span>
+                <span className="text-[#0038A8]">{formatFCFA(selectedOrder.total_amount)} FCFA</span>
+              </div>
+
+              <p className="text-[9px] text-slate-400">
+                Anti-fraude Jël Tix • Billet valide sous réserve de scan unique à l'entrée
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex-1 py-3 rounded-xl bg-[#0038A8] hover:bg-[#002D8C] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer"
+              >
+                <Printer className="w-4 h-4 text-[#4EED15]" />
+                <span>Lancer Impression (80mm)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowThermalReceipt(false)}
+                className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+              >
+                Fermer
+              </button>
             </div>
           </div>
         </div>

@@ -24,21 +24,28 @@ interface EditEventModalProps {
   onSave: (updatedEvent: Partial<EventItem>) => Promise<void>;
 }
 
-const CATEGORIES: EventCategory[] = [
+const STANDARD_CATEGORIES: EventCategory[] = [
   'Football',
-  'Lutte Sénégalaise',
-  'Concert / Festival',
-  'Oscars & Soirées Gala',
-  'Théâtre & Humour',
   'Basketball',
-  'Autre Événement',
+  'Lutte Sénégalaise',
+  'Concert',
+  'Festival',
+  'Oscar des vacances',
+  'Soirée',
+  'Théâtre & Humour',
+  'Salon & Expo',
+  'Autre',
 ];
 
 export function EditEventModal({ event, onClose, onSave }: EditEventModalProps) {
   if (!event) return null;
 
+  const isCustomInitially = Boolean(event.category && !STANDARD_CATEGORIES.includes(event.category as EventCategory));
+  const initialCategoryChoice: EventCategory = isCustomInitially ? 'Autre' : ((event.category as EventCategory) || 'Football');
+
   const [title, setTitle] = useState(event.title || '');
-  const [category, setCategory] = useState<EventCategory>((event.category as EventCategory) || 'Football');
+  const [category, setCategory] = useState<EventCategory>(initialCategoryChoice);
+  const [customCategory, setCustomCategory] = useState(isCustomInitially ? event.category : '');
   const [venue, setVenue] = useState(event.venue || '');
   const [locationDetails, setLocationDetails] = useState(event.locationDetails || '');
   const [startDate, setStartDate] = useState(
@@ -128,13 +135,15 @@ export function EditEventModal({ event, onClose, onSave }: EditEventModalProps) 
 
     const totalCap = ticketTypes.reduce((sum, tt) => sum + (Number(tt.totalQuantity) || 0), 0);
 
+    const finalCategory = category === 'Autre' ? (customCategory.trim() || 'Autre') : category;
+
     try {
       setIsSaving(true);
       await onSave({
         id: event.id,
         slug: event.slug,
         title: title.trim(),
-        category,
+        category: finalCategory,
         venue: venue.trim(),
         locationDetails: locationDetails.trim(),
         startDate: new Date(startDate).toISOString(),
@@ -233,19 +242,41 @@ export function EditEventModal({ event, onClose, onSave }: EditEventModalProps) 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-white/80 mb-1">
-                  Catégorie
+                  Catégorie *
                 </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value as EventCategory)}
                   className="w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
                 >
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
+                  <option value="Football">⚽ Football</option>
+                  <option value="Basketball">🏀 Basketball</option>
+                  <option value="Lutte Sénégalaise">🤼 Lutte Sénégalaise</option>
+                  <option value="Concert">🎤 Concert</option>
+                  <option value="Festival">🎪 Festival</option>
+                  <option value="Oscar des vacances">🏆 Oscar des vacances</option>
+                  <option value="Soirée">🌙 Soirée (Gala, Dansante...)</option>
+                  <option value="Théâtre & Humour">🎭 Théâtre & Humour</option>
+                  <option value="Salon & Expo">💼 Salon & Expo</option>
+                  <option value="Autre">✨ Autre (Préciser...)</option>
                 </select>
+
+                {category === 'Autre' && (
+                  <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <input
+                      type="text"
+                      required
+                      value={customCategory}
+                      onChange={(e) => setCustomCategory(e.target.value)}
+                      placeholder="Précisez la catégorie (ex: Soirée privée, Tournoi...)"
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border-2 border-primary text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+                      autoFocus
+                    />
+                    <p className="text-[10px] text-slate-500 dark:text-white/50 mt-1">
+                      Précisez la catégorie personnalisée de l'événement.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>

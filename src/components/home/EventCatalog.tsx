@@ -9,12 +9,16 @@ import { formatFCFA, formatDateFrench, isEventClosedOrPast } from '@/lib/utils/f
 
 const CATEGORIES = [
   { id: 'all', label: 'Tous les événements', icon: '✨' },
-  { id: 'Oscars & Soirées Gala', label: 'Oscars & Galas de Vacances', icon: '🏆' },
-  { id: 'Concert / Festival', label: 'Concerts & Festivals', icon: '🎵' },
-  { id: 'Théâtre & Humour', label: 'Théâtre & Stand-up', icon: '🎭' },
-  { id: 'Football', label: 'Football & Sports', icon: '⚽' },
-  { id: 'Lutte Sénégalaise', label: 'Lutte & Combats Tradis', icon: '🥊' },
-  { id: 'Basketball', label: 'Basketball D1 / BAL', icon: '🏀' },
+  { id: 'Football', label: 'Football', icon: '⚽' },
+  { id: 'Basketball', label: 'Basketball', icon: '🏀' },
+  { id: 'Lutte Sénégalaise', label: 'Lutte Sénégalaise', icon: '🤼' },
+  { id: 'Concert', label: 'Concerts', icon: '🎤' },
+  { id: 'Festival', label: 'Festivals', icon: '🎪' },
+  { id: 'Oscar des vacances', label: 'Oscar des vacances', icon: '🏆' },
+  { id: 'Soirée', label: 'Soirées & Galas', icon: '🌙' },
+  { id: 'Théâtre & Humour', label: 'Théâtre & Humour', icon: '🎭' },
+  { id: 'Salon & Expo', label: 'Salon & Expo', icon: '💼' },
+  { id: 'Autre', label: 'Autres', icon: '✨' },
 ];
 
 export function EventCatalog() {
@@ -35,13 +39,46 @@ export function EventCatalog() {
   const filteredEvents = useMemo(
     () =>
       events.filter((evt) => {
-        const matchesCategory = selectedCategory === 'all' || evt.category === selectedCategory;
+        let matchesCategory = false;
+        if (selectedCategory === 'all') {
+          matchesCategory = true;
+        } else if (selectedCategory === 'Concert') {
+          matchesCategory = evt.category === 'Concert' || evt.category === 'Concert / Festival';
+        } else if (selectedCategory === 'Festival') {
+          matchesCategory = evt.category === 'Festival' || evt.category === 'Concert / Festival';
+        } else if (selectedCategory === 'Oscar des vacances') {
+          matchesCategory = evt.category === 'Oscar des vacances' || evt.category === 'Oscars & Soirées Gala';
+        } else if (selectedCategory === 'Soirée') {
+          matchesCategory = evt.category === 'Soirée' || evt.category.toLowerCase().includes('soirée') || evt.category.toLowerCase().includes('gala');
+        } else if (selectedCategory === 'Salon & Expo') {
+          matchesCategory = evt.category === 'Salon & Expo' || evt.category === 'Conférence / Salon';
+        } else if (selectedCategory === 'Autre') {
+          const standardList = [
+            'Football',
+            'Basketball',
+            'Lutte Sénégalaise',
+            'Concert',
+            'Festival',
+            'Oscar des vacances',
+            'Soirée',
+            'Théâtre & Humour',
+            'Salon & Expo',
+            'Concert / Festival',
+            'Oscars & Soirées Gala',
+            'Conférence / Salon',
+          ];
+          matchesCategory = !standardList.includes(evt.category) || evt.category === 'Autre' || evt.category === 'Autre Événement';
+        } else {
+          matchesCategory = evt.category === selectedCategory;
+        }
+
         const q = searchQuery.toLowerCase();
         const matchesSearch =
           !q ||
           evt.title.toLowerCase().includes(q) ||
           evt.venue.toLowerCase().includes(q) ||
-          evt.locationDetails.toLowerCase().includes(q);
+          evt.locationDetails.toLowerCase().includes(q) ||
+          evt.category.toLowerCase().includes(q);
         return matchesCategory && matchesSearch;
       }),
     [events, selectedCategory, searchQuery],

@@ -50,6 +50,7 @@ export default function NewEventPage() {
 
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<EventCategory>('Football');
+  const [customCategory, setCustomCategory] = useState('');
   const [venue, setVenue] = useState('');
   const [locationDetails, setLocationDetails] = useState('');
   const [startDate, setStartDate] = useState('2026-11-20');
@@ -167,10 +168,12 @@ export default function NewEventPage() {
       } catch {}
     }
 
+    const finalCategory = category === 'Autre' ? (customCategory.trim() || 'Autre') : category;
+
     const eventPayload = {
       slug,
       title,
-      category,
+      category: finalCategory,
       venue,
       locationDetails: locationDetails || 'Dakar, Sénégal',
       startDate: parsedDateStr,
@@ -271,7 +274,7 @@ export default function NewEventPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold text-on-surface mb-1">Catégorie</label>
+              <label className="block text-xs font-bold text-on-surface mb-1">Catégorie *</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as EventCategory)}
@@ -280,12 +283,31 @@ export default function NewEventPage() {
                 <option value="Football">⚽ Football</option>
                 <option value="Basketball">🏀 Basketball</option>
                 <option value="Lutte Sénégalaise">🤼 Lutte Sénégalaise</option>
-                <option value="Concert / Festival">🎤 Concert / Festival</option>
-                <option value="Oscars & Soirées Gala">🏆 Oscars & Soirées Gala</option>
+                <option value="Concert">🎤 Concert</option>
+                <option value="Festival">🎪 Festival</option>
+                <option value="Oscar des vacances">🏆 Oscar des vacances</option>
+                <option value="Soirée">🌙 Soirée (Gala, Dansante...)</option>
                 <option value="Théâtre & Humour">🎭 Théâtre & Humour</option>
-                <option value="Conférence / Salon">💼 Conférence / Salon</option>
-                <option value="Autre Événement">✨ Autre Événement</option>
+                <option value="Salon & Expo">💼 Salon & Expo</option>
+                <option value="Autre">✨ Autre (Préciser...)</option>
               </select>
+
+              {category === 'Autre' && (
+                <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <input
+                    type="text"
+                    required
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    placeholder="Précisez la catégorie (ex: Gala, Religeux, Tournoi...)"
+                    className="w-full px-3.5 py-2 rounded-xl bg-surface border-2 border-primary text-xs focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+                    autoFocus
+                  />
+                  <p className="text-[10px] text-on-surface-variant mt-1">
+                    Précisez le type d'événement pour l'affichage dans le catalogue.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>

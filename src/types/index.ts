@@ -43,11 +43,14 @@ export type EventCategory =
   | 'Football'
   | 'Basketball'
   | 'Lutte Sénégalaise'
-  | 'Concert / Festival'
-  | 'Oscars & Soirées Gala'
+  | 'Concert'
+  | 'Festival'
+  | 'Oscar des vacances'
+  | 'Soirée'
   | 'Théâtre & Humour'
-  | 'Conférence / Salon'
-  | 'Autre Événement';
+  | 'Salon & Expo'
+  | 'Autre'
+  | (string & {});
 
 export interface EventItem {
   id: string;

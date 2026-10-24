@@ -75,34 +75,59 @@ export function isEventClosedOrPast(event: {
   timeString?: string;
 } | null | undefined): boolean {
   if (!event) return false;
+  // Si l'organisateur a explicitement clôturé
   if (event.status === 'CLOSED') return true;
 
   const now = Date.now();
 
-  // 1. Vérification de la date de fin explicite
+  // Helper pour parser une date ou chaîne YYYY-MM-DD jusqu'à la fin de la journée (23:59:59.999)
+  const parseToEndOfDay = (dateStr: string): number => {
+    // Si format simple YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
+      const [year, month, day] = dateStr.trim().split('-').map(Number);
+      return new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
+    }
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return NaN;
+    // Si l'heure est 00:00:00 (typiquement un sélecteur de date pur), on étend à la fin de la journée
+    if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0) {
+      d.setUTCHours(23, 59, 59, 999);
+    }
+    return d.getTime();
+  };
+
+  // 1. Si une date de fin explicite (endDate) est définie, les ventes restent ouvertes jusqu'à la fin de ce jour
   if (event.endDate) {
-    const end = new Date(event.endDate).getTime();
-    if (!isNaN(end) && now > end) {
-      return true;
+    const endTimestamp = parseToEndOfDay(event.endDate);
+    if (!isNaN(endTimestamp)) {
+      return now > endTimestamp;
     }
   }
 
-  // 2. Vérification de la date de début + durée par défaut (4h)
+  // 2. Si aucune endDate mais une date de début
   if (event.startDate) {
     const start = new Date(event.startDate);
     if (!isNaN(start.getTime())) {
-      // Si timeString contient une heure (ex: "18:00" ou "20:30 UTC") et start est à minuit
-      if (event.timeString && start.getHours() === 0 && start.getMinutes() === 0) {
+      // Extraire l'heure si renseignée (ex: "23:00 UTC", "20:30")
+      let eventStartTimestamp = start.getTime();
+      if (event.timeString) {
         const timeMatch = event.timeString.match(/(\d{1,2}):(\d{2})/);
         if (timeMatch) {
-          start.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), 0, 0);
+          const hours = parseInt(timeMatch[1], 10);
+          const minutes = parseInt(timeMatch[2], 10);
+          // Si l'événement démarre en soirée (ex: 22h, 23h), il se prolonge jusqu'au lendemain matin (+12h)
+          start.setHours(hours, minutes, 0, 0);
+          eventStartTimestamp = start.getTime();
         }
       }
-      // On considère l'événement clôturé 4 heures après le coup d'envoi
-      const eventEndTime = start.getTime() + 4 * 60 * 60 * 1000;
-      if (now > eventEndTime) {
-        return true;
-      }
+
+      // Par défaut pour un événement en cours ou du jour : actif jusqu'au lendemain matin (+14 heures après début ou fin de journée)
+      const eventEndWithBuffer = Math.max(
+        eventStartTimestamp + 14 * 60 * 60 * 1000,
+        parseToEndOfDay(event.startDate)
+      );
+
+      return now > eventEndWithBuffer;
     }
   }
 

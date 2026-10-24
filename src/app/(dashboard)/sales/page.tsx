@@ -33,6 +33,8 @@ import {
   Ticket as TicketIcon,
 } from 'lucide-react';
 
+import { printThermal57x90 } from '@/lib/utils/thermal-print-57x90';
+
 const QRCodeSVG = dynamic(() => import('qrcode.react').then((m) => m.QRCodeSVG), {
   ssr: false,
 });
@@ -59,7 +61,7 @@ const METHOD_LABELS: Record<string, { label: string; color: string; bg: string }
 };
 
 export default function SalesPage() {
-  const { currentUser } = useJeltixStore();
+  const { currentUser, tickets: storeTickets, events: storeEvents } = useJeltixStore();
   const { addToast } = useToast();
 
   const isAdmin = currentUser?.role === 'SUPER_ADMIN';
@@ -95,11 +97,54 @@ export default function SalesPage() {
           .from('tickets')
           .select('id, ticket_code, price_paid, status, qr_data, gate_recommendation, ticket_types(name)')
           .or(`order_id.eq.${currentOrderId},order_id.eq.${currentOrderRef}`);
-        if (!error && data && isMounted) {
+        if (!error && data && data.length > 0 && isMounted) {
+          setOrderTickets(data);
+          return;
+        }
+
+        // Repli instantané sur storeTickets local pour garantir l'affichage du QR Code
+        const localMatches = storeTickets.filter((st) => {
+          return (
+            st.orderId === currentOrderId ||
+            st.orderId === currentOrderRef ||
+            (currentOrderRef && st.ticketCode?.includes(currentOrderRef))
+          );
+        });
+
+        if (localMatches.length > 0 && isMounted) {
+          setOrderTickets(
+            localMatches.map((lt) => ({
+              id: lt.id,
+              ticket_code: lt.ticketCode,
+              price_paid: lt.pricePaid,
+              status: lt.status,
+              qr_data: lt.qrData || `JELTIX:${lt.ticketCode}:${lt.eventId}:${lt.status}`,
+              gate_recommendation: lt.gateRecommendation || 'Porte Principale',
+              ticket_types: { name: lt.ticketTypeName || 'Billet' },
+            }))
+          );
+        } else if (isMounted && data) {
           setOrderTickets(data);
         }
       } catch (err) {
         console.error('Erreur chargement billets commande:', err);
+        // Repli sur local
+        const localMatches = storeTickets.filter(
+          (st) => st.orderId === currentOrderId || st.orderId === currentOrderRef
+        );
+        if (localMatches.length > 0 && isMounted) {
+          setOrderTickets(
+            localMatches.map((lt) => ({
+              id: lt.id,
+              ticket_code: lt.ticketCode,
+              price_paid: lt.pricePaid,
+              status: lt.status,
+              qr_data: lt.qrData || `JELTIX:${lt.ticketCode}:${lt.eventId}:${lt.status}`,
+              gate_recommendation: lt.gateRecommendation || 'Porte Principale',
+              ticket_types: { name: lt.ticketTypeName || 'Billet' },
+            }))
+          );
+        }
       } finally {
         if (isMounted) setLoadingTickets(false);
       }
@@ -108,7 +153,7 @@ export default function SalesPage() {
     return () => {
       isMounted = false;
     };
-  }, [selectedOrder]);
+  }, [selectedOrder, storeTickets]);
 
   const loadOrders = useCallback(async () => {
     if (isController) return;
@@ -946,19 +991,47 @@ export default function SalesPage() {
               </p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2">
               <button
                 type="button"
-                onClick={() => window.print()}
-                className="flex-1 py-3 rounded-xl bg-[#0038A8] hover:bg-[#002D8C] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                onClick={() => {
+                  const ev = storeEvents.find((e) => e.id === selectedOrder.event_id) || null;
+                  if (orderTickets.length > 0) {
+                    printThermal57x90({
+                      tickets: orderTickets.map((ot) => ({
+                        id: ot.id,
+                        ticketCode: ot.ticket_code,
+                        orderId: selectedOrder.id,
+                        eventId: selectedOrder.event_id,
+                        eventTitle: (Array.isArray(selectedOrder.events) ? selectedOrder.events[0]?.title : selectedOrder.events?.title) || 'Événement',
+                        ticketTypeId: ot.ticket_type_id || '',
+                        ticketTypeName: Array.isArray(ot.ticket_types) ? ot.ticket_types[0]?.name : ot.ticket_types?.name || 'Billet Standard',
+                        gateRecommendation: ot.gate_recommendation || 'Accès Standard',
+                        customerName: selectedOrder.customer_name || 'Client',
+                        customerPhone: selectedOrder.customer_phone || '',
+                        pricePaid: ot.price_paid || 0,
+                        status: ot.status || 'VALID',
+                        qrData: ot.qr_data || `JELTIX:${ot.ticket_code}:${selectedOrder.event_id}:${ot.status || 'VALID'}`,
+                        createdAt: selectedOrder.created_at,
+                      })),
+                      event: ev,
+                      sellerName: currentUser?.fullName || 'Vendeur Caisse',
+                      paymentMethod: selectedOrder.payment_method,
+                    });
+                  } else {
+                    window.print();
+                  }
+                }}
+                className="w-full py-3 rounded-xl bg-[#0038A8] hover:bg-[#002D8C] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg cursor-pointer"
               >
                 <Printer className="w-4 h-4 text-[#4EED15]" />
-                <span>Lancer Impression (80mm)</span>
+                <span>Imprimer Billets avec QR Code (57x90mm / 80mm)</span>
               </button>
+
               <button
                 type="button"
                 onClick={() => setShowThermalReceipt(false)}
-                className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
               >
                 Fermer
               </button>

@@ -24,9 +24,14 @@ const nextConfig = {
     ],
   },
 
-  // ─── Tree-Shake Heavy Icon Packages ───────────────────────────────────────
+  // ─── Tree-Shake Heavy Icon & UI Packages ───────────────────────────────────────
   experimental: {
-    optimizePackageImports: ['lucide-react'],
+    optimizePackageImports: [
+      'lucide-react',
+      'date-fns',
+      'framer-motion',
+      '@supabase/supabase-js',
+    ],
   },
 
   // ─── Headers de Caching Agressif pour les Assets Statiques ────────────────

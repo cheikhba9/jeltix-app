@@ -64,13 +64,32 @@ function extractTicketCode(raw: string): string {
 }
 
 export default function PwaScannerPage() {
-  const { validateScanAtomic, recordScanEvent, scans, currentUser } = useJeltixStore();
+  const { validateScanAtomic, recordScanEvent, scans, events, currentUser } = useJeltixStore();
   const { theme } = useTheme();
 
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isOrganizer = currentUser?.role === 'ORGANIZER';
   const isController = currentUser?.role === 'CONTROLLER';
   const isAuthorized = isSuperAdmin || isOrganizer || isController;
+
+  // Filtrer les événements appartenant à cet organisateur (ou tous pour SUPER_ADMIN)
+  const accessibleEvents = isSuperAdmin
+    ? events
+    : events.filter(
+        (e) =>
+          e.organizerId === currentUser?.id ||
+          (currentUser?.organizationId && e.organizerId === currentUser.organizationId)
+      );
+
+  const [selectedEventId, setSelectedEventId] = useState<string>(
+    accessibleEvents[0]?.id || ''
+  );
+
+  useEffect(() => {
+    if (accessibleEvents.length > 0 && (!selectedEventId || !accessibleEvents.some((e) => e.id === selectedEventId))) {
+      setSelectedEventId(accessibleEvents[0].id);
+    }
+  }, [accessibleEvents, selectedEventId]);
 
   const [selectedGate, setSelectedGate] = useState('Porte A - Entrée Principale');
   const [controllerName] = useState(currentUser?.fullName || 'Agent Contrôle #12');
@@ -456,11 +475,27 @@ export default function PwaScannerPage() {
     isPausedRef.current = false;
   };
 
-  // Gate statistics — Calculées en direct pour la session et la porte
-  const gateScans = scans.filter((s) => s.gate === selectedGate || !s.gate);
-  const totalScansCount = gateScans.length;
-  const validScansCount = gateScans.filter((s) => s.result === 'VALID').length;
-  const duplicateRejectedCount = gateScans.filter((s) => s.result !== 'VALID').length;
+  // Statistiques isolées : filtrer strictement selon les événements de l'organisateur connecté
+  const organizerEventIds = new Set(accessibleEvents.map((e) => e.id));
+
+  const filteredScans = scans.filter((s) => {
+    // 1. Isolation multi-tenant : si pas SUPER_ADMIN, le scan doit appartenir à un événement de cet organisateur
+    if (!isSuperAdmin) {
+      if (s.eventId && !organizerEventIds.has(s.eventId)) {
+        return false;
+      }
+    }
+    // 2. Filtre optionnel par événement sélectionné
+    if (selectedEventId && s.eventId && s.eventId !== selectedEventId) {
+      return false;
+    }
+    // 3. Filtre par porte active
+    return s.gate === selectedGate || !s.gate;
+  });
+
+  const totalScansCount = filteredScans.length;
+  const validScansCount = filteredScans.filter((s) => s.result === 'VALID').length;
+  const duplicateRejectedCount = filteredScans.filter((s) => s.result !== 'VALID').length;
 
 
   const isDark = theme === 'dark';
@@ -568,8 +603,27 @@ export default function PwaScannerPage() {
         </div>
       </header>
 
-      {/* 2. Top Bar: Gate Selector & Live Gate KPIs */}
+      {/* 2. Top Bar: Event Selector, Gate Selector & Live Gate KPIs */}
       <div className="max-w-md mx-auto w-full px-4 pt-3 flex flex-col gap-3">
+        {accessibleEvents.length > 0 && (
+          <div>
+            <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-1">
+              Événement Actif ({isSuperAdmin ? 'Tous les événements' : 'Mes événements'})
+            </label>
+            <select
+              value={selectedEventId}
+              onChange={(e) => setSelectedEventId(e.target.value)}
+              className="w-full bg-white dark:bg-[#0B1936] text-xs font-bold py-2 px-3 rounded-xl border border-slate-200 dark:border-white/15 outline-none text-primary dark:text-[#4EED15] cursor-pointer shadow-xs font-mono truncate"
+            >
+              {accessibleEvents.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-2">
           <div className="flex-1">
             <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-1">
@@ -593,7 +647,7 @@ export default function PwaScannerPage() {
             className="mt-4 px-3 py-2 rounded-xl bg-white dark:bg-[#0B1936] text-xs font-bold border border-slate-200 dark:border-white/15 flex items-center gap-1.5 shadow-xs cursor-pointer text-slate-700 dark:text-slate-200"
           >
             <History className="w-3.5 h-3.5 text-primary" />
-            <span>Historique ({gateScans.length})</span>
+            <span>Historique ({filteredScans.length})</span>
           </button>
         </div>
 
@@ -841,12 +895,12 @@ export default function PwaScannerPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-2 py-4 pr-1">
-              {gateScans.length === 0 ? (
+              {filteredScans.length === 0 ? (
                 <p className="text-center py-8 text-xs text-slate-400">
-                  Aucun scan enregistré à cette porte.
+                  Aucun scan enregistré à cette porte pour cet événement.
                 </p>
               ) : (
-                gateScans.map((s) => (
+                filteredScans.map((s) => (
                   <div
                     key={s.id}
                     className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between"

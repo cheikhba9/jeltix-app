@@ -413,15 +413,40 @@ class JeltixStore {
 
   private saveLocalOnly() {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('jeltix_events_v4', JSON.stringify(this.events));
-      localStorage.setItem('jeltix_tickets_v4', JSON.stringify(this.tickets));
-      localStorage.setItem('jeltix_scans_v4', JSON.stringify(this.scans));
-      localStorage.setItem('jeltix_users_v4', JSON.stringify(this.users));
-      localStorage.setItem('jeltix_orders_v4', JSON.stringify(this.orders));
-      if (this.currentUser) {
-        localStorage.setItem('jeltix_current_user', JSON.stringify(this.currentUser));
-      } else {
-        localStorage.removeItem('jeltix_current_user');
+      try {
+        localStorage.setItem('jeltix_events_v4', JSON.stringify(this.events));
+        localStorage.setItem('jeltix_tickets_v4', JSON.stringify(this.tickets));
+        localStorage.setItem('jeltix_scans_v4', JSON.stringify(this.scans));
+        localStorage.setItem('jeltix_users_v4', JSON.stringify(this.users));
+        localStorage.setItem('jeltix_orders_v4', JSON.stringify(this.orders));
+        if (this.currentUser) {
+          localStorage.setItem('jeltix_current_user', JSON.stringify(this.currentUser));
+        } else {
+          localStorage.removeItem('jeltix_current_user');
+        }
+      } catch (err: any) {
+        // En cas de quota dépassé (ex: grosse image Base64 ou cache navigateur saturé)
+        console.warn('LocalStorage quota saturé, purge des anciens caches...', err);
+        try {
+          // Nettoyer les clés obsolètes pour libérer de l'espace immédiatement
+          Object.keys(localStorage).forEach((key) => {
+            if (
+              key.startsWith('jeltix_events_v1') ||
+              key.startsWith('jeltix_events_v2') ||
+              key.startsWith('jeltix_events_v3') ||
+              key.startsWith('jeltix_tickets_v1') ||
+              key.startsWith('jeltix_tickets_v2') ||
+              key.startsWith('jeltix_tickets_v3') ||
+              key.startsWith('foutaticket_')
+            ) {
+              localStorage.removeItem(key);
+            }
+          });
+          // Réessayer avec les événements
+          localStorage.setItem('jeltix_events_v4', JSON.stringify(this.events));
+        } catch (retryErr) {
+          console.warn('LocalStorage saturé malgré la purge:', retryErr);
+        }
       }
       this.persistToDisk();
     }

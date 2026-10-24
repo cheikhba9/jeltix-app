@@ -6,6 +6,7 @@ import { useJeltixStore } from '@/lib/store/jeltix-store';
 import { formatFCFA, formatDateWithDay, isEventClosedOrPast } from '@/lib/utils/format';
 import { playCashRegisterSound, playSuccessBeep } from '@/lib/audio/sound-effects';
 import { PaymentMethod, Ticket } from '@/types';
+import { printThermal57x90 } from '@/lib/utils/thermal-print-57x90';
 
 // Dynamic import — QR code lib only loads when the payment success modal opens (~40KB saved on initial load)
 const QRCodeSVG = dynamic(() => import('qrcode.react').then((m) => m.QRCodeSVG), {
@@ -229,9 +230,29 @@ export default function POSPage() {
     addToast({
       type: 'success',
       title: 'Vente Encaissée !',
-      message: `${result.generatedTickets.length} billet(s) émis • ${formatFCFA(totalAmount)} FCFA`,
+      message: `${result.generatedTickets.length} billet(s) émis • Format 57×90mm`,
     });
     clearCart();
+
+    // Lancement instantané de l'impression thermique 57x90mm (<150ms)
+    setTimeout(() => {
+      printThermal57x90({
+        tickets: result.generatedTickets,
+        event: currentEvent,
+        sellerName: currentUser?.fullName || 'Vendeur Guichet',
+        paymentMethod: selectedPayment,
+      });
+    }, 250);
+  };
+
+  const handlePrintThermal = () => {
+    if (!lastIssuedTickets || lastIssuedTickets.length === 0) return;
+    printThermal57x90({
+      tickets: lastIssuedTickets,
+      event: currentEvent,
+      sellerName: currentUser?.fullName || 'Vendeur Guichet',
+      paymentMethod: selectedPayment,
+    });
   };
 
   return (
@@ -684,53 +705,86 @@ export default function POSPage() {
         </div>
       </div>
 
-      {/* 80mm Thermal Receipt Modal */}
+      {/* 57mm x 90mm Thermal Receipt Modal */}
       {showThermalReceipt && lastIssuedTickets && lastIssuedTickets.length > 0 && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white text-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 border border-slate-200 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-[#2CA808]" />
-                <span className="text-xs font-black uppercase tracking-wider text-slate-900 font-mono">
-                  Reçu Caisse 80mm • Jël Tix
-                </span>
+                <span className="w-3 h-3 rounded-full bg-[#2CA808] animate-pulse" />
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 font-mono">
+                    Billet Thermique (57 × 90 mm)
+                  </h4>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    Jël Tix POS • Impression Instantanée
+                  </span>
+                </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowThermalReceipt(false)}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer"
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Realistic Thermal Receipt Content */}
-            <div className="bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-300 text-center font-mono space-y-3">
-              <div>
-                <p className="text-lg font-black tracking-tight text-[#0038A8]">JËL TIX BILLETTERIE</p>
-                <p className="text-[10px] text-slate-500">Saisissez • Réservez • Profitez</p>
-                <p className="text-[10px] text-slate-500">Opérateur : {currentUser?.fullName || 'Vendeur Guichet'}</p>
-              </div>
-
-              <div className="border-t border-b border-dashed border-slate-300 py-2 text-left text-xs space-y-1">
-                <p className="font-bold text-slate-900 line-clamp-1">{lastIssuedTickets[0].eventTitle}</p>
-                <p className="text-[11px] text-slate-600">
-                  {formatDateWithDay(currentEvent?.startDate || new Date().toISOString())}
+            {/* Realistic 57mm x 90mm Thermal Ticket Preview */}
+            <div className="bg-slate-50 p-3.5 rounded-2xl border border-dashed border-slate-400 text-center font-mono space-y-3 max-h-[60vh] overflow-y-auto">
+              <div className="pb-1 border-b border-dashed border-slate-300">
+                <p className="text-base font-black tracking-tight text-[#0038A8]">JËL TIX</p>
+                <p className="text-[9px] font-bold text-slate-600 uppercase">Billetterie Officielle</p>
+                <p className="text-[9px] text-slate-500">
+                  Opérateur : {currentUser?.fullName || 'Vendeur Guichet'}
                 </p>
-                <p className="text-[11px] text-slate-600">Client: {lastIssuedTickets[0].customerName}</p>
-                <p className="text-[11px] text-slate-600">Mode: {selectedPayment}</p>
               </div>
 
-              {/* Tickets generated in this order */}
-              <div className="space-y-3 py-1">
+              {/* Each ticket formatted for 57x90mm */}
+              <div className="space-y-4">
                 {lastIssuedTickets.map((tkt, idx) => (
-                  <div key={tkt.id} className="bg-white p-3 rounded-xl border border-slate-200 flex flex-col items-center gap-2">
-                    <div className="flex justify-between w-full text-xs font-bold">
-                      <span className="text-[#0038A8]">{tkt.ticketTypeName}</span>
-                      <span>{formatFCFA(tkt.pricePaid)} F</span>
+                  <div
+                    key={tkt.id}
+                    className="bg-white p-3.5 rounded-xl border-2 border-slate-300 flex flex-col items-center gap-2 shadow-xs text-left"
+                  >
+                    <div className="w-full text-center">
+                      <p className="font-extrabold text-xs text-slate-900 line-clamp-1">{tkt.eventTitle}</p>
+                      <p className="text-[10px] text-slate-600 mt-0.5">
+                        {formatDateWithDay(currentEvent?.startDate || new Date().toISOString())} • {currentEvent?.timeString || '19:00'}
+                      </p>
+                      <p className="text-[9px] text-slate-500 truncate">{currentEvent?.venue || 'Lieu Officiel'}</p>
                     </div>
-                    <QRCodeSVG value={tkt.ticketCode} size={110} level="H" />
-                    <p className="text-sm font-black tracking-widest text-[#0038A8]">{tkt.ticketCode}</p>
-                    <p className="text-[10px] text-slate-500">{tkt.gateRecommendation}</p>
+
+                    <div className="w-full border-t border-dashed border-slate-300 pt-1.5 flex justify-between items-baseline">
+                      <span className="text-xs font-black uppercase text-[#0038A8]">{tkt.ticketTypeName}</span>
+                      <span className="text-xs font-black text-slate-900">{formatFCFA(tkt.pricePaid)} FCFA</span>
+                    </div>
+
+                    <div className="w-full text-[10px] text-slate-600 space-y-0.5">
+                      <p className="truncate">Client : <strong>{tkt.customerName}</strong></p>
+                      <div className="flex justify-between">
+                        <span>Porte : <strong>{tkt.gateRecommendation || 'Accès Général'}</strong></span>
+                        {tkt.seatNumber && <span>Place : <strong>{tkt.seatNumber}</strong></span>}
+                      </div>
+                    </div>
+
+                    <div className="w-full border-t border-dashed border-slate-300 pt-2 flex flex-col items-center justify-center">
+                      <div className="bg-white p-2 rounded-lg border border-slate-200">
+                        <QRCodeSVG
+                          id={`thermal-qr-${tkt.ticketCode}`}
+                          value={tkt.ticketCode}
+                          size={120}
+                          level="H"
+                          includeMargin={false}
+                        />
+                      </div>
+                      <p className="text-sm font-black tracking-widest text-[#0038A8] font-mono mt-1">
+                        #{tkt.ticketCode}
+                      </p>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">
+                        Billet {idx + 1}/{lastIssuedTickets.length} • Scan Unique
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -742,28 +796,116 @@ export default function POSPage() {
                 </span>
               </div>
 
-              <p className="text-[9px] text-slate-400">
-                Merci de votre visite • Billet non remboursable • Anti-fraude Jël Tix
+              <p className="text-[8px] text-slate-400">
+                Format d'impression : 57mm × 90mm • Scan unique tourniquet
               </p>
             </div>
 
             {/* Print & Close Actions */}
             <div className="flex items-center gap-2">
               <button
-                onClick={() => window.print()}
-                className="flex-1 py-3 rounded-xl bg-[#0038A8] text-white font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-[#002D8C] cursor-pointer shadow-md"
+                type="button"
+                onClick={handlePrintThermal}
+                className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-[#0038A8] to-[#0D52D6] hover:from-[#002D8C] hover:to-[#0038A8] text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-95 cursor-pointer"
+                title="Lancer l'impression directe au format 57x90mm"
               >
                 <Printer className="w-4 h-4 text-[#4EED15]" />
-                <span>Imprimer Reçu (80mm)</span>
+                <span>Imprimer Billet (57×90mm)</span>
               </button>
+
+              {lastIssuedTickets[0]?.customerPhone && (
+                <a
+                  href={`https://api.whatsapp.com/send?phone=${lastIssuedTickets[0].customerPhone.replace(/[^0-9]/g, '')}&text=${encodeURIComponent(`Bonjour ${lastIssuedTickets[0].customerName}, voici votre reçu et vos billets pour ${lastIssuedTickets[0].eventTitle} : https://jeltix.sn/tickets/${lastIssuedTickets[0].ticketCode}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-3.5 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] text-white font-bold text-xs flex items-center justify-center shadow-md transition-colors"
+                  title="Envoyer le lien du billet au client par WhatsApp"
+                >
+                  <span className="material-symbols-outlined text-[18px]">chat</span>
+                </a>
+              )}
+
               <button
+                type="button"
                 onClick={() => setShowThermalReceipt(false)}
-                className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                className="px-4 py-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
               >
                 Fermer
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Hidden fallback print area for Ctrl+P */}
+      {lastIssuedTickets && lastIssuedTickets.length > 0 && (
+        <div id="thermal-print-area" className="hidden print:block text-black bg-white">
+          {lastIssuedTickets.map((tkt, idx) => (
+            <div
+              key={`print-fallback-${tkt.id}`}
+              style={{
+                width: '57mm',
+                height: '90mm',
+                maxHeight: '90mm',
+                padding: '2mm 3mm',
+                boxSizing: 'border-box',
+                pageBreakAfter: 'always',
+                breakAfter: 'page',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                textAlign: 'center',
+                overflow: 'hidden',
+                background: '#ffffff',
+                color: '#000000',
+              }}
+            >
+              <div style={{ width: '100%' }}>
+                <div style={{ fontSize: '13px', fontWeight: 900, letterSpacing: '1px' }}>JËL TIX</div>
+                <div style={{ fontSize: '7px', fontWeight: 700, color: '#333' }}>BILLETTERIE OFFICIELLE</div>
+                <div style={{ fontSize: '10.5px', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden' }}>{tkt.eventTitle}</div>
+                <div style={{ fontSize: '8px', color: '#222' }}>
+                  {formatDateWithDay(currentEvent?.startDate || new Date().toISOString())} • {currentEvent?.timeString || '19:00'}
+                </div>
+                <div style={{ fontSize: '8px', color: '#222' }}>{currentEvent?.venue || 'Lieu Officiel'}</div>
+              </div>
+
+              <div style={{ width: '100%', borderBottom: '1px dashed #000', margin: '1mm 0' }} />
+
+              <div style={{ width: '100%' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 900 }}>
+                  <span style={{ textTransform: 'uppercase' }}>{tkt.ticketTypeName}</span>
+                  <span style={{ fontFamily: 'monospace' }}>{formatFCFA(tkt.pricePaid)} FCFA</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px', color: '#222', marginTop: '0.5mm' }}>
+                  <span>Client: {tkt.customerName}</span>
+                  <span>{selectedPayment}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px', color: '#222' }}>
+                  <span>Porte: {tkt.gateRecommendation || 'Accès Général'}</span>
+                  {tkt.seatNumber && <span>Place: {tkt.seatNumber}</span>}
+                </div>
+              </div>
+
+              <div style={{ width: '100%', borderBottom: '1px dashed #000', margin: '1mm 0' }} />
+
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <QRCodeSVG value={tkt.ticketCode} size={118} level="H" />
+                <div style={{ fontSize: '12.5px', fontWeight: 900, letterSpacing: '2px', fontFamily: 'monospace', marginTop: '0.8mm' }}>
+                  #{tkt.ticketCode}
+                </div>
+              </div>
+
+              <div style={{ width: '100%', borderBottom: '1px dashed #000', margin: '1mm 0' }} />
+
+              <div style={{ width: '100%', fontSize: '7.5px', color: '#222' }}>
+                <div>Caisse: {currentUser?.fullName || 'Vendeur'} • {new Date().toLocaleDateString('fr-FR')} {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+                <div style={{ fontSize: '7px', fontWeight: 900, letterSpacing: '0.5px' }}>BILLET OFFICIEL • SCAN UNIQUE OBLIGATOIRE</div>
+                <div style={{ fontSize: '7px', fontFamily: 'monospace' }}>{idx + 1} / {lastIssuedTickets.length}</div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

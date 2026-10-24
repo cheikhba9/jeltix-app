@@ -303,3 +303,40 @@
   border-radius: 8px;
 }
 .dark .focus-ring:focus-visible { outline-color: #4EED15; }
+
+/* ──────────────────────────────────────────────────────── */
+/* Impression Thermique Dédiée (57mm x 90mm)               */
+/* ──────────────────────────────────────────────────────── */
+
+@media print {
+  @page {
+    size: 57mm 90mm;
+    margin: 0;
+  }
+  html, body {
+    width: 57mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  /* Masquer tous les éléments d'interface à l'impression */
+  body > * {
+    visibility: hidden;
+  }
+  /* Afficher uniquement la zone de reçu thermique si présente */
+  #thermal-print-area,
+  #thermal-print-area * {
+    visibility: visible !important;
+  }
+  #thermal-print-area {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 57mm !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 999999;
+  }
+}

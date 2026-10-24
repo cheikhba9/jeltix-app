@@ -16,6 +16,7 @@ import {
   formatWhatsAppPhone,
   generateTicketPhoto,
 } from '@/lib/utils/ticket-share';
+import { printThermal57x90 } from '@/lib/utils/thermal-print-57x90';
 
 import {
   ArrowLeft,
@@ -241,11 +242,19 @@ export default function TicketViewPage({
             </button>
 
             <button
-              onClick={() => window.print()}
+              onClick={() => {
+                const ticketsToPrint = companionTickets.length > 0 ? companionTickets : [ticket];
+                printThermal57x90({
+                  tickets: ticketsToPrint,
+                  event: event || null,
+                  sellerName: 'Jël Tix Billetterie',
+                });
+              }}
               className="px-4 py-2 rounded-xl bg-[#4EED15] hover:bg-[#42D40F] text-[#002D8C] text-xs font-black flex items-center gap-1.5 shadow-lg shadow-[#4EED15]/20 transition-all cursor-pointer"
+              title="Lancer l'impression directe au format thermique 57mm x 90mm avec QR Code"
             >
               <Printer className="w-4 h-4" />
-              <span>Imprimer / PDF</span>
+              <span>Imprimer (57x90mm)</span>
             </button>
           </div>
         </div>

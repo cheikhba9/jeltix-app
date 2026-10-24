@@ -1,3 +1,6 @@
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { QRCodeSVG } from 'qrcode.react';
 import type { Ticket, EventItem } from '@/types';
 import { formatFCFA, formatDateWithDay } from './format';
 
@@ -15,6 +18,25 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+/**
+ * Génère le SVG pur du QR Code pour un billet de façon 100% autonome
+ */
+function renderTicketQRCodeSvg(ticketCode: string): string {
+  try {
+    return renderToStaticMarkup(
+      React.createElement(QRCodeSVG, {
+        value: ticketCode,
+        size: 130,
+        level: 'M',
+        includeMargin: false,
+      })
+    );
+  } catch (err) {
+    // Repli de secours
+    return `<div style="width:34mm;height:34mm;border:1px solid #000;display:flex;align-items:center;justify-content:center;font-size:9px;">#${escapeHtml(ticketCode)}</div>`;
+  }
 }
 
 /**
@@ -57,15 +79,8 @@ export function printThermal57x90({
 
   // Construction des pages 57mm x 90mm pour chaque billet
   const pagesHtml = tickets.map((tkt, idx) => {
-    // Récupérer le SVG QR Code généré dans le DOM
-    const qrElement = document.getElementById(`thermal-qr-${tkt.ticketCode}`);
-    let qrSvgContent = '';
-    if (qrElement) {
-      qrSvgContent = qrElement.outerHTML;
-    } else {
-      // Fallback si l'élément DOM n'est pas encore monté
-      qrSvgContent = `<div style="width:34mm;height:34mm;border:1px solid #000;display:flex;align-items:center;justify-content:center;font-size:9px;">#${escapeHtml(tkt.ticketCode)}</div>`;
-    }
+    // Génération vectorielle 100% autonome et immédiate du QR Code SVG
+    const qrSvgContent = renderTicketQRCodeSvg(tkt.ticketCode);
 
     const eventTitle = tkt.eventTitle || event?.title || 'Événement Officiel';
     const eventDate = event?.startDate ? formatDateWithDay(event.startDate) : dateEmission;

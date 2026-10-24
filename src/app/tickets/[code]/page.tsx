@@ -8,15 +8,7 @@ import { PublicHeader } from '@/components/layout/PublicHeader';
 import { Footer } from '@/components/layout/Footer';
 import Link from 'next/link';
 
-// Dynamic: QR lib only downloads when component is in viewport — lighter initial bundle
-const QRCodeSVG = dynamic(() => import('qrcode.react').then((m) => m.QRCodeSVG), {
-  loading: () => <div className="w-48 h-48 bg-slate-100 rounded-2xl animate-pulse mx-auto" />,
-  ssr: false,
-});
-
-const QRCodeCanvas = dynamic(() => import('qrcode.react').then((m) => m.QRCodeCanvas), {
-  ssr: false,
-});
+import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 
 import {
   buildWhatsAppTicketMessage,

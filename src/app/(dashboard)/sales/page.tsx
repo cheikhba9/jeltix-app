@@ -35,9 +35,7 @@ import {
 
 import { printThermal57x90 } from '@/lib/utils/thermal-print-57x90';
 
-const QRCodeSVG = dynamic(() => import('qrcode.react').then((m) => m.QRCodeSVG), {
-  ssr: false,
-});
+import { QRCodeSVG } from 'qrcode.react';
 
 interface SupabaseOrder {
   id: string;

@@ -30,10 +30,7 @@ import {
 import type { Ticket } from '@/types';
 import { isSuperAdminEmail } from '@/lib/services/profiles.service';
 
-const QRCodeSVG = dynamic(() => import('qrcode.react').then((m) => m.QRCodeSVG), {
-  loading: () => <div className="w-40 h-40 bg-slate-100 dark:bg-white/10 rounded-2xl animate-pulse mx-auto" />,
-  ssr: false,
-});
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function MyTicketsPage() {
   const { tickets, events, getTicketByCode, currentUser, setCurrentUser } = useJeltixStore();

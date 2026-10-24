@@ -8,11 +8,7 @@ import { playCashRegisterSound, playSuccessBeep } from '@/lib/audio/sound-effect
 import { PaymentMethod, Ticket } from '@/types';
 import { printThermal57x90 } from '@/lib/utils/thermal-print-57x90';
 
-// Dynamic import — QR code lib only loads when the payment success modal opens (~40KB saved on initial load)
-const QRCodeSVG = dynamic(() => import('qrcode.react').then((m) => m.QRCodeSVG), {
-  loading: () => <div className="w-32 h-32 bg-white/20 rounded-xl animate-pulse" />,
-  ssr: false,
-});
+import { QRCodeSVG } from 'qrcode.react';
 
 import Link from 'next/link';
 import {

@@ -65,11 +65,11 @@ export class PaytechAdapter implements PaymentGatewayAdapter {
     let baseUrl = (
       process.env.PAYTECH_IPN_BASE_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
-      'https://jeltix-sn.vercel.app'
+      'https://jel-tix.vercel.app'
     ).trim().replace(/\/+$/, '');
 
     if (!baseUrl || baseUrl.includes('localhost') || baseUrl.startsWith('http://')) {
-      baseUrl = 'https://jeltix-sn.vercel.app';
+      baseUrl = 'https://jel-tix.vercel.app';
     }
 
     const sanitizeUrl = (inputUrl: string | undefined, defaultPath: string): string => {

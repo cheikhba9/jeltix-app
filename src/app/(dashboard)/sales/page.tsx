@@ -841,7 +841,7 @@ export default function SalesPage() {
                   href={`https://wa.me/${selectedOrder.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(
                     `Bonjour ${selectedOrder.customer_name || 'Client'}, voici votre reçu Jël Tix pour la commande #${selectedOrder.reference} (${formatFCFA(selectedOrder.total_amount)} FCFA).${
                       orderTickets[0]?.ticket_code
-                        ? ` Votre billet : https://jeltix-sn.vercel.app/tickets/${orderTickets[0].ticket_code}`
+                        ? ` Votre billet : https://jel-tix.vercel.app/tickets/${orderTickets[0].ticket_code}`
                         : ''
                     }`
                   )}`}

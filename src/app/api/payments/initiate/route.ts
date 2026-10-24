@@ -30,9 +30,9 @@ export async function POST(req: Request) {
     const paymentId = `PAY-${orderRef}`;
 
     // Base URL pour les redirections
-    let origin = (process.env.NEXT_PUBLIC_APP_URL || 'https://jeltix-sn.vercel.app').trim().replace(/\/+$/, '');
+    let origin = (process.env.NEXT_PUBLIC_APP_URL || 'https://jel-tix.vercel.app').trim().replace(/\/+$/, '');
     if (!origin || origin.includes('localhost') || origin.startsWith('http://')) {
-      origin = 'https://jeltix-sn.vercel.app';
+      origin = 'https://jel-tix.vercel.app';
     }
 
     // Guichet PayTech multi-opérateurs : le client choisit Wave, OM, Free ou Carte directement sur PayTech

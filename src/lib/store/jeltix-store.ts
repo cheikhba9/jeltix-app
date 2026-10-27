@@ -617,7 +617,10 @@ class JeltixStore {
   public validateScanAtomic(
     ticketCode: string,
     gate: string = 'Porte A - Entrée Principale',
-    controllerName: string = 'Contrôleur Porte A'
+    controllerName: string = 'Contrôleur Porte A',
+    targetEventId?: string,
+    organizerId?: string,
+    isSuperAdmin?: boolean
   ): {
     success: boolean;
     result: ScanResultType;
@@ -660,6 +663,9 @@ class JeltixStore {
           ticketCode: cleanCode,
           gate,
           controllerName,
+          targetEventId,
+          organizerId,
+          isSuperAdmin,
         }),
       }).catch(() => {});
 
@@ -668,6 +674,95 @@ class JeltixStore {
         result: 'INVALID',
         message: 'FAUX BILLET OU CODE INCONNU DANS LE REGISTRE JËL TIX',
       };
+    }
+
+    // Cas 1.b : Vérification de sécurité Multi-Organisateur et Multi-Événement
+    if (!isSuperAdmin) {
+      if (targetEventId && ticket.eventId && ticket.eventId !== targetEventId) {
+        const targetEvent = this.events.find(
+          (e) => e.id === ticket.eventId || e.slug === ticket.eventId
+        );
+        const eventTitle = targetEvent?.title || 'un autre événement';
+
+        const scanLog: ScanLog = {
+          id: `scn-${Date.now()}`,
+          ticketId: ticket.id,
+          ticketCode: ticket.ticketCode,
+          eventId: ticket.eventId,
+          ticketTypeName: ticket.ticketTypeName,
+          gate,
+          controllerName,
+          result: 'INVALID',
+          errorMessage: `Billet d'un autre événement (${eventTitle}) scanné par erreur`,
+          scannedAt: new Date().toISOString(),
+        };
+        this.scans.unshift(scanLog);
+        this.save();
+
+        fetch('/api/local-db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'VALIDATE_SCAN',
+            ticketCode: cleanCode,
+            gate,
+            controllerName,
+            targetEventId,
+            organizerId,
+            isSuperAdmin,
+          }),
+        }).catch(() => {});
+
+        return {
+          success: false,
+          result: 'INVALID',
+          message: `REFUSÉ : Ce billet appartient à l'événement "${eventTitle}". Entrée non autorisée pour cet événement !`,
+          ticket,
+        };
+      }
+
+      if (organizerId) {
+        const ticketEvent = this.events.find(
+          (e) => e.id === ticket.eventId || e.slug === ticket.eventId
+        );
+        if (ticketEvent && ticketEvent.organizerId && ticketEvent.organizerId !== organizerId) {
+          const scanLog: ScanLog = {
+            id: `scn-${Date.now()}`,
+            ticketId: ticket.id,
+            ticketCode: ticket.ticketCode,
+            eventId: ticket.eventId,
+            ticketTypeName: ticket.ticketTypeName,
+            gate,
+            controllerName,
+            result: 'INVALID',
+            errorMessage: `Billet d'un autre organisateur scanné par erreur`,
+            scannedAt: new Date().toISOString(),
+          };
+          this.scans.unshift(scanLog);
+          this.save();
+
+          fetch('/api/local-db', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'VALIDATE_SCAN',
+              ticketCode: cleanCode,
+              gate,
+              controllerName,
+              targetEventId,
+              organizerId,
+              isSuperAdmin,
+            }),
+          }).catch(() => {});
+
+          return {
+            success: false,
+            result: 'INVALID',
+            message: `REFUSÉ : Billet émis par un autre organisateur. Entrée interdite sur cet événement !`,
+            ticket,
+          };
+        }
+      }
     }
 
     // Cas 2 : Tentative de double passage (Fraude)
@@ -698,6 +793,9 @@ class JeltixStore {
           ticketCode: cleanCode,
           gate,
           controllerName,
+          targetEventId,
+          organizerId,
+          isSuperAdmin,
         }),
       }).catch(() => {});
 
@@ -741,6 +839,9 @@ class JeltixStore {
         ticketCode: cleanCode,
         gate,
         controllerName,
+        targetEventId,
+        organizerId,
+        isSuperAdmin,
       }),
     }).catch(() => {});
 
@@ -1025,8 +1126,22 @@ export function useJeltixStore() {
       getTicketByCode: (code: string) => jeltixStoreInstance.getTicketByCode(code),
       purchaseTickets: (params: Parameters<typeof jeltixStoreInstance.purchaseTickets>[0]) =>
         jeltixStoreInstance.purchaseTickets(params),
-      validateScanAtomic: (code: string, gate?: string, controller?: string) =>
-        jeltixStoreInstance.validateScanAtomic(code, gate, controller),
+      validateScanAtomic: (
+        code: string,
+        gate?: string,
+        controller?: string,
+        targetEventId?: string,
+        organizerId?: string,
+        isSuperAdmin?: boolean
+      ) =>
+        jeltixStoreInstance.validateScanAtomic(
+          code,
+          gate,
+          controller,
+          targetEventId,
+          organizerId,
+          isSuperAdmin
+        ),
       recordScanEvent: (scanLog: ScanLog, updatedTicket?: Partial<Ticket>) =>
         jeltixStoreInstance.recordScanEvent(scanLog, updatedTicket),
       createEvent: (data: Parameters<typeof jeltixStoreInstance.createEvent>[0]) =>

@@ -177,7 +177,15 @@ export async function POST(req: Request) {
         gate: body.gate,
         controllerName: body.controllerName,
         controllerId: body.controllerId,
+        targetEventId: body.targetEventId,
+        organizerId: body.organizerId,
+        isSuperAdmin: body.isSuperAdmin,
       });
+
+      // Si Supabase a explicitement refusé en raison d'un événement ou organisateur différent, renvoyer immédiatement ce refus !
+      if (scanResult && scanResult.message && scanResult.message.startsWith('REFUSÉ :')) {
+        return NextResponse.json(scanResult);
+      }
 
       // Si non trouvé dans Supabase ou erreur, chercher sur le disque local (au cas où l'achat n'a pas fini de s'insérer)
       if (!scanResult || scanResult.result === 'INVALID') {
@@ -194,6 +202,37 @@ export async function POST(req: Request) {
           });
 
           if (diskTicket) {
+            // Sécurité Multi-Événement / Multi-Organisateur sur le disque local
+            if (!body.isSuperAdmin) {
+              if (body.targetEventId && diskTicket.eventId && diskTicket.eventId !== body.targetEventId) {
+                const diskEvent = Array.isArray(currentDisk.events)
+                  ? currentDisk.events.find((e: any) => e.id === diskTicket.eventId || e.slug === diskTicket.eventId)
+                  : null;
+                const evTitle = diskEvent?.title || 'un autre événement';
+
+                return NextResponse.json({
+                  success: false,
+                  result: 'INVALID',
+                  message: `REFUSÉ : Ce billet appartient à l'événement "${evTitle}". Entrée non autorisée pour cet événement !`,
+                  ticket: diskTicket,
+                });
+              }
+
+              if (body.organizerId && Array.isArray(currentDisk.events)) {
+                const diskEvent = currentDisk.events.find(
+                  (e: any) => e.id === diskTicket.eventId || e.slug === diskTicket.eventId
+                );
+                if (diskEvent && diskEvent.organizerId && diskEvent.organizerId !== body.organizerId) {
+                  return NextResponse.json({
+                    success: false,
+                    result: 'INVALID',
+                    message: `REFUSÉ : Billet émis par un autre organisateur. Entrée interdite sur cet événement !`,
+                    ticket: diskTicket,
+                  });
+                }
+              }
+            }
+
             const nowIso = new Date().toISOString();
             if (diskTicket.status === 'USED') {
               scanResult = {
@@ -235,7 +274,7 @@ export async function POST(req: Request) {
                     used_gate: body.gate,
                   })
                   .eq('ticket_code', diskTicket.ticketCode)
-                  .catch(() => {});
+                  .then(() => {}, () => {});
               }
 
               scanResult = {

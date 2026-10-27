@@ -562,6 +562,9 @@ export async function validateScanInSupabase(params: {
   gate?: string;
   controllerName?: string;
   controllerId?: string;
+  targetEventId?: string;
+  organizerId?: string;
+  isSuperAdmin?: boolean;
 }): Promise<{
   success: boolean;
   result: ScanResultType;
@@ -590,7 +593,7 @@ export async function validateScanInSupabase(params: {
     const { data: exactTicket, error: tktErr } = await withTimeout(
       supabase
         .from('tickets')
-        .select('*, events(title), ticket_types(name)')
+        .select('*, events(id, title, organizer_id), ticket_types(name)')
         .or(`ticket_code.eq.${cleanCode},ticket_code.eq.${cleanCode.replace('JT-', 'FT-')},ticket_code.eq.${cleanCode.replace('FT-', 'JT-')}`)
         .maybeSingle(),
       5000
@@ -602,7 +605,7 @@ export async function validateScanInSupabase(params: {
       // Recherche souple avec ilike si jamais la casse ou un préfixe varie
       const { data: fuzzyTicket } = await supabase
         .from('tickets')
-        .select('*, events(title), ticket_types(name)')
+        .select('*, events(id, title, organizer_id), ticket_types(name)')
         .ilike('ticket_code', `%${cleanCode}%`)
         .limit(1)
         .maybeSingle();
@@ -624,6 +627,54 @@ export async function validateScanInSupabase(params: {
         result: 'INVALID',
         message: 'FAUX BILLET OU CODE INCONNU DANS LE REGISTRE JËL TIX',
       };
+    }
+
+    // 1.b VÉRIFICATION DE SÉCURITÉ MULTI-ORGANISATEUR & ÉVÉNEMENT :
+    // Un contrôleur / organisateur ne peut scanner QUE les billets de son propre événement
+    const ticketEventId = ticket.event_id;
+    const ticketEventOrganizerId = Array.isArray(ticket.events) ? ticket.events[0]?.organizer_id : ticket.events?.organizer_id;
+    const ticketEventTitle = (Array.isArray(ticket.events) ? ticket.events[0]?.title : ticket.events?.title) || 'Autre Événement';
+
+    if (!params.isSuperAdmin) {
+      // Si un événement cible est sélectionné et qu'il ne correspond pas au billet
+      if (params.targetEventId && ticketEventId && params.targetEventId !== ticketEventId) {
+        await supabase.from('scans').insert({
+          ticket_id: ticket.id,
+          ticket_code: ticket.ticket_code,
+          event_id: ticket.event_id,
+          gate,
+          controller_id: safeControllerId,
+          result: 'INVALID',
+          error_message: `Billet d'un autre événement (${ticketEventTitle}) scanné par erreur`,
+        });
+
+        return {
+          success: false,
+          result: 'INVALID',
+          message: `REFUSÉ : Ce billet appartient à l'événement "${ticketEventTitle}". Entrée non autorisée pour cet événement !`,
+          ticket,
+        };
+      }
+
+      // Si l'organisateur connecté ne possède pas cet événement
+      if (params.organizerId && ticketEventOrganizerId && params.organizerId !== ticketEventOrganizerId) {
+        await supabase.from('scans').insert({
+          ticket_id: ticket.id,
+          ticket_code: ticket.ticket_code,
+          event_id: ticket.event_id,
+          gate,
+          controller_id: safeControllerId,
+          result: 'INVALID',
+          error_message: `Billet d'un autre organisateur scanné par erreur`,
+        });
+
+        return {
+          success: false,
+          result: 'INVALID',
+          message: `REFUSÉ : Billet émis par un autre organisateur. Entrée interdite sur cet événement !`,
+          ticket,
+        };
+      }
     }
 
     // 2. Déjà scanné -> Double passage

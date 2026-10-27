@@ -368,6 +368,8 @@ export default function PwaScannerPage() {
     const cleanCode = extractTicketCode(rawInput);
     let result: any = null;
 
+    const effectiveOrganizerId = currentUser?.organizationId || currentUser?.id;
+
     // 1. Validation en temps réel sur Supabase Cloud (Source de vérité partagée multi-contrôleurs)
     try {
       const res = await fetch('/api/local-db', {
@@ -379,11 +381,19 @@ export default function PwaScannerPage() {
           gate: selectedGate,
           controllerName,
           controllerId: currentUser?.id,
+          targetEventId: selectedEventId,
+          organizerId: effectiveOrganizerId,
+          isSuperAdmin,
         }),
       });
       if (res.ok) {
         const cloudRes = await res.json();
-        if (cloudRes && (cloudRes.result === 'VALID' || cloudRes.result === 'ALREADY_SCANNED')) {
+        if (
+          cloudRes &&
+          (cloudRes.result === 'VALID' ||
+            cloudRes.result === 'ALREADY_SCANNED' ||
+            (cloudRes.result === 'INVALID' && cloudRes.message?.startsWith('REFUSÉ')))
+        ) {
           result = cloudRes;
         }
       }
@@ -391,14 +401,17 @@ export default function PwaScannerPage() {
       console.warn('Mode hors-ligne: validation sur le registre local:', cloudErr);
     }
 
-    // 2. Si le cloud n'a pas validé ou s'il a renvoyé INVALID, vérifier sur le registre local
-    if (!result || result.result === 'INVALID') {
-      const localResult = validateScanAtomic(cleanCode, selectedGate, controllerName);
-      if (localResult.result === 'VALID' || localResult.result === 'ALREADY_SCANNED') {
-        result = localResult;
-      } else if (!result) {
-        result = localResult;
-      }
+    // 2. Si le cloud n'a pas répondu ou s'il s'agit du registre local, valider atomiquement
+    if (!result) {
+      const localResult = validateScanAtomic(
+        cleanCode,
+        selectedGate,
+        controllerName,
+        selectedEventId,
+        effectiveOrganizerId,
+        isSuperAdmin
+      );
+      result = localResult;
     }
 
     // 3. Enregistrer systématiquement le scan dans le store local pour les compteurs temps réel
@@ -819,10 +832,14 @@ export default function PwaScannerPage() {
                     <div className="w-16 h-16 rounded-full bg-white text-[#DC2626] flex items-center justify-center shadow-xl ring-4 ring-white/30">
                       <XCircle className="w-10 h-10" />
                     </div>
-                    <p className="text-2xl font-black text-white tracking-tight">BILLET INVALIDE</p>
-                    <p className="text-xs font-bold text-white/95">{scanResult.message}</p>
+                    <p className="text-2xl font-black text-white tracking-tight">
+                      {scanResult.message?.startsWith('REFUSÉ') ? 'ACCÈS REFUSÉ' : 'BILLET INVALIDE'}
+                    </p>
+                    <p className="text-xs font-bold text-white/95 max-w-xs">{scanResult.message}</p>
                     <p className="text-[11px] text-white/70 font-mono mt-1">
-                      Code inconnu ou non répertorié dans la billetterie
+                      {scanResult.message?.startsWith('REFUSÉ')
+                        ? 'Événement ou organisateur différent'
+                        : 'Code inconnu ou non répertorié dans la billetterie'}
                     </p>
                   </>
                 )}
